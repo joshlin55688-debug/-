@@ -56,21 +56,20 @@
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
 
-    // 模擬獲取 K 線數據 (正式上線可替換為真實 API)
-    async function fetchMockData(symbol) {
-        let data = [];
-        let price = 150;
-        let time = new Date('2023-01-01').getTime();
-        for(let i=0; i<100; i++) {
-            let open = price + (Math.random() - 0.5) * 5;
-            let high = open + Math.random() * 5;
-            let low = open - Math.random() * 5;
-            let close = (high + low) / 2 + (Math.random() - 0.5) * 2;
-            data.push({ time: time / 1000, open, high, low, close });
-            price = close;
-            time += 86400000;
+  // 讀取 GitHub Actions 抓回來的真實資料
+    async function fetchRealData(symbol) {
+        try {
+            // 根據輸入的代號，去 data 資料夾找對應的 json 檔
+            const response = await fetch(`data/${symbol}.json`);
+            if (!response.ok) {
+                throw new Error("找不到資料");
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            alert(`目前沒有 ${symbol} 的資料！請確認該股票是否在你 Python 腳本的 symbols 清單中。`);
+            return [];
         }
-        return data;
     }
 
     // === 自製原生技術指標計算引擎 (絕對不會報錯) ===
@@ -119,7 +118,7 @@
         document.getElementById('ta-results').innerHTML = "<li>資料載入與計算中...</li>";
         
         // 1. 獲取資料並畫圖
-        const historicalData = await fetchMockData(symbol);
+        const historicalData = await fetchRealData(symbol);
         candleSeries.setData(historicalData);
 
         // 2. 準備收盤價陣列
