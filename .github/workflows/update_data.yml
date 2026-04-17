@@ -1,0 +1,38 @@
+name: 自動更新股票資料
+
+on:
+  # 每天 UTC 時間早上 10 點執行 (台灣時間傍晚 6 點，台股已收盤)
+  schedule:
+    - cron: '0 10 * * 1-5' 
+  # 允許我們在 GitHub 網頁上手動點擊執行
+  workflow_dispatch: 
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 必須開啟寫入權限，機器人才能把 JSON 檔存回 Repo
+
+    steps:
+      - name: 取得最新的程式碼
+        uses: actions/checkout@v3
+
+      - name: 安裝 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 安裝必要的套件 (yfinance & pandas)
+        run: pip install yfinance pandas
+
+      - name: 執行爬蟲腳本
+        run: python fetch_data.py
+
+      - name: 將新資料 Commit 並 Push 回 GitHub
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add data/
+          # 如果資料有更新才 commit，沒有更新就不會報錯
+          git commit -m "Auto-update stock data [skip ci]" || echo "No changes to commit"
+          git push
