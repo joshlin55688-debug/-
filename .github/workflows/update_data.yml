@@ -34,5 +34,5 @@ jobs:
           git config --local user.name "GitHub Action Bot"
           git add data/
           # 如果資料有更新才 commit，沒有更新就不會報錯
-          git commit -m "Auto-update stock data [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-update stock data" || echo "No changes to commit"
           git push
