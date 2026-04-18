@@ -30,7 +30,7 @@ jobs:
     - name: 4. 執行 Python 爬蟲
       run: python fetch_data.py
 
-    - name: 5. 將產生的 data 資料夾推播回 GitHub (關鍵步驟)
+    - name: 5. 將產生的 data 資料夾推播回 GitHub
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
@@ -39,11 +39,4 @@ jobs:
         # 如果沒有新的資料變化，就忽略報錯繼續執行
         git commit -m "🤖 自動更新股價資料" || echo "No changes to commit"
         # 推播回倉庫
-        git push
-    - name: Commit and Push
-      run: |
-        git config --local user.email "actions@github.com"
-        git config --local user.name "GitHub Actions"
-        git add data/
-        git commit -m "自動更新股價資料" || echo "沒有資料變更"
         git push
