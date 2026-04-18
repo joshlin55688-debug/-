@@ -1,38 +1,42 @@
-name: 自動更新股票資料
+name: 股票資料自動抓取機器人
 
 on:
-  # 每天 UTC 時間早上 10 點執行 (台灣時間傍晚 6 點，台股已收盤)
   schedule:
-    - cron: '0 10 * * 1-5' 
-  # 允許我們在 GitHub 網頁上手動點擊執行
-  workflow_dispatch: 
+    - cron: '0 10 * * 1-5'  # 台灣時間週一到週五晚上 18:00 自動化執行
+  workflow_dispatch:        # 允許你在網頁上手動點擊執行
+
+# 給予機器人寫入程式碼倉庫的權限 (這行很重要，不然存不進去)
+permissions:
+  contents: write
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # 必須開啟寫入權限，機器人才能把 JSON 檔存回 Repo
 
     steps:
-      - name: 取得最新的程式碼
-        uses: actions/checkout@v3
+    - name: 1. 取得程式碼
+      uses: actions/checkout@v3
 
-      - name: 安裝 Python 環境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: 2. 設定 Python 環境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      - name: 安裝必要的套件 (yfinance & pandas)
-        run: pip install yfinance pandas
+    - name: 3. 安裝必備套件
+      run: |
+        python -m pip install --upgrade pip
+        pip install yfinance pandas
 
-      - name: 執行爬蟲腳本
-        run: python fetch_data.py
+    - name: 4. 執行 Python 爬蟲
+      run: python fetch_data.py
 
-      - name: 將新資料 Commit 並 Push 回 GitHub
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action Bot"
-          git add data/
-          # 如果資料有更新才 commit，沒有更新就不會報錯
-          git commit -m "Auto-update stock data" || echo "No changes to commit"
-          git push
+    - name: 5. 將產生的 data 資料夾推播回 GitHub (關鍵步驟)
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        # 把 data 資料夾加進追蹤
+        git add data/
+        # 如果沒有新的資料變化，就忽略報錯繼續執行
+        git commit -m "🤖 自動更新股價資料" || echo "No changes to commit"
+        # 推播回倉庫
+        git push
