@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>純技術分析儀表板 | 台美股雙棲</title>
+    <title>純技術分析儀表板 | API 即時抓取版</title>
     
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     
@@ -11,33 +11,34 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: auto; }
         .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { padding: 10px; font-size: 16px; border-radius: 5px; border: none; flex: 1; background: #2a2a2a; color: white; }
-        button { padding: 10px 20px; font-size: 16px; border-radius: 5px; border: none; background-color: #007bff; color: white; cursor: pointer; transition: 0.3s; }
+        input { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #444; flex: 1; background: #2a2a2a; color: white; }
+        button { padding: 10px 20px; font-size: 16px; border-radius: 5px; border: none; background-color: #007bff; color: white; cursor: pointer; transition: 0.3s; font-weight: bold;}
         button:hover { background-color: #0056b3; }
-        #chart { width: 100%; height: 500px; background: #1e1e1e; border-radius: 8px; margin-bottom: 20px; }
-        .analysis-panel { background: #1e1e1e; padding: 20px; border-radius: 8px; line-height: 1.6;}
+        #chart { width: 100%; height: 500px; background: #1e1e1e; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .analysis-panel { background: #1e1e1e; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
         .signal-buy { color: #26a69a; font-weight: bold; }
         .signal-sell { color: #ef5350; font-weight: bold; }
         .signal-neutral { color: #ffb74d; font-weight: bold; }
+        h2, h3 { margin-top: 0; color: #fff; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>純技術分析儀表板 (台美股)</h2>
+    <h2>📈 技術分析儀表板 (即時 API 版)</h2>
     <div class="search-bar">
-        <input type="text" id="symbol" placeholder="輸入代號 (美股: AAPL, 台股: 2330.TW)" value="AAPL" oninput="this.value = this.value.toUpperCase()">
-        <button onclick="analyzeStock()">搜尋並分析</button>
+        <input type="text" id="symbol" placeholder="輸入代號 (美股: TSLA, 台股上市: 2330.TW, 台股上櫃: 3105.TWO)" value="NVDA" oninput="this.value = this.value.toUpperCase()">
+        <button onclick="analyzeStock()" id="search-btn">搜尋並分析</button>
     </div>
     
     <div id="chart"></div>
 
     <div class="analysis-panel">
-        <h3>技術面分析結論 <span id="trend-status"></span></h3>
+        <h3>📊 演算法分析結論 <span id="trend-status"></span></h3>
         <ul id="ta-results">
-            <li>請點擊「搜尋並分析」載入數據...</li>
+            <li>請輸入股票代號並點擊搜尋，系統將即時抓取最新數據...</li>
         </ul>
-        <h4 id="final-verdict"></h4>
+        <h4 id="final-verdict" style="font-size: 1.2em; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;"></h4>
     </div>
 </div>
 
@@ -56,176 +57,208 @@
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
 
-    // 讀取 GitHub Actions 抓回來的真實資料
+    // === 核心修改：前端即時抓取 Yahoo Finance API ===
     async function fetchRealData(symbol) {
         try {
-            // 加上 ./ 確保在 GitHub Pages 上能正確指向當前目錄的 data 資料夾
-            const response = await fetch(`./data/${symbol}.json`);
+            // Yahoo Finance API (抓取過去 1 年的日K線)
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+            
+            // 使用 corsproxy.io 繞過瀏覽器跨網域限制 (CORS)
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+            const response = await fetch(proxyUrl);
+            
             if (!response.ok) {
-                throw new Error("找不到資料");
+                throw new Error("網路請求失敗，請稍後再試");
             }
-            const data = await response.json();
-            return data;
+            
+            const rawData = await response.json();
+
+            // 防呆：確認回傳資料是否包含該股票
+            if (!rawData.chart.result || rawData.chart.result.length === 0) {
+                throw new Error("找不到該股票，請確認代號是否正確");
+            }
+
+            const result = rawData.chart.result[0];
+            const timestamps = result.timestamp;
+            const quote = result.indicators.quote[0];
+
+            let chartData = [];
+            
+            // 將 Yahoo 的資料格式轉換為圖表所需的 { time, open, high, low, close }
+            for (let i = 0; i < timestamps.length; i++) {
+                // 排除沒有交易的空白資料 (如假日)
+                if (quote.close[i] !== null && quote.open[i] !== null) {
+                    // Unix 時間戳轉換為 YYYY-MM-DD
+                    const date = new Date(timestamps[i] * 1000);
+                    const timeString = date.toISOString().split('T')[0];
+                    
+                    chartData.push({
+                        time: timeString,
+                        open: Number(quote.open[i].toFixed(2)),
+                        high: Number(quote.high[i].toFixed(2)),
+                        low: Number(quote.low[i].toFixed(2)),
+                        close: Number(quote.close[i].toFixed(2))
+                    });
+                }
+            }
+            return chartData;
+
         } catch (error) {
-            alert(`目前沒有 ${symbol} 的資料！請確認該股票是否在 Python 腳本的清單中，且 Actions 已執行完畢。`);
+            console.error(error);
+            alert(`抓取 ${symbol} 失敗！\n1. 請確認代號正確 (台股上市加 .TW，上櫃加 .TWO)\n2. 可能是免費代理伺服器忙碌，請過幾秒再試一次。\n詳細錯誤: ${error.message}`);
             return [];
         }
     }
 
-    // === 自製原生技術指標計算引擎 (修正與優化版) ===
-    
-    // 1. 簡單移動平均線 (SMA)
+    // === 自製原生技術指標計算引擎 ===
     function calculateSMA(data, period) {
         if (data.length < period) return null;
         let sum = 0;
-        for (let i = data.length - period; i < data.length; i++) {
-            sum += data[i];
-        }
+        for (let i = data.length - period; i < data.length; i++) { sum += data[i]; }
         return sum / period;
     }
 
-    // 2. 相對強弱指標 (RSI) - 使用 Wilder's Smoothing 標準算法
     function calculateRSI(data, period) {
         if (data.length <= period) return null;
         let gains = 0, losses = 0;
-        
-        // 取得初始平均漲跌
         for (let i = 1; i <= period; i++) {
             let change = data[i] - data[i - 1];
             if (change > 0) gains += change;
             else losses -= change;
         }
-        
         let avgGain = gains / period;
         let avgLoss = losses / period;
 
-        // 後續使用平滑法計算
         for (let i = period + 1; i < data.length; i++) {
             let change = data[i] - data[i - 1];
             let currentGain = change > 0 ? change : 0;
             let currentLoss = change < 0 ? Math.abs(change) : 0;
-            
             avgGain = ((avgGain * (period - 1)) + currentGain) / period;
             avgLoss = ((avgLoss * (period - 1)) + currentLoss) / period;
         }
-
         if (avgLoss === 0) return 100;
         let rs = avgGain / avgLoss;
         return 100 - (100 / (1 + rs));
     }
 
-    // 3. 指數移動平均線 (EMA) - 需帶入完整歷史資料
     function calculateEMA(data, period) {
         if (data.length < period) return null;
         let k = 2 / (period + 1);
-        
-        // EMA 的起點通常用前 period 天的 SMA 作為種子
         let sum = 0;
-        for(let i = 0; i < period; i++) {
-            sum += data[i];
-        }
+        for(let i = 0; i < period; i++) { sum += data[i]; }
         let ema = sum / period; 
-        
-        // 從 period 之後開始逐日計算 EMA
         for (let i = period; i < data.length; i++) {
             ema = (data[i] * k) + (ema * (1 - k));
         }
         return ema;
     }
 
-    // 4. 平滑異同移動平均線 (MACD)
     function calculateMACD(data) {
         if (data.length < 26) return null;
-        // 必須傳入完整的 data 陣列讓 EMA 進行歷史平滑累加
         let ema12 = calculateEMA(data, 12); 
         let ema26 = calculateEMA(data, 26);
-        let macdLine = ema12 - ema26;
-        return macdLine; 
+        return ema12 - ema26; 
     }
-    // ==================================
 
+    // === 主程式 ===
     async function analyzeStock() {
-        const symbol = document.getElementById('symbol').value.toUpperCase();
+        const symbolInput = document.getElementById('symbol');
+        const symbol = symbolInput.value.toUpperCase().trim();
+        const btn = document.getElementById('search-btn');
         const resultsContainer = document.getElementById('ta-results');
         const verdictContainer = document.getElementById('final-verdict');
         
-        resultsContainer.innerHTML = "<li>資料載入與計算中...</li>";
+        if (!symbol) return;
+
+        // UI 狀態更新
+        btn.innerText = "資料抓取中...";
+        btn.disabled = true;
+        resultsContainer.innerHTML = "<li>正在從 Yahoo Finance 獲取即時資料...</li>";
         verdictContainer.innerHTML = "";
         
         // 1. 獲取資料並畫圖
         const historicalData = await fetchRealData(symbol);
         
-        // 【防呆機制】：如果沒抓到資料，提早結束，避免下方計算報錯
         if (!historicalData || historicalData.length === 0) {
-            resultsContainer.innerHTML = `<li><span class="signal-sell">無法載入 ${symbol} 的數據，請確認代號正確。</span></li>`;
+            resultsContainer.innerHTML = `<li><span class="signal-sell">無法載入數據，請檢查代號是否正確。</span></li>`;
+            btn.innerText = "搜尋並分析";
+            btn.disabled = false;
             return;
         }
 
         candleSeries.setData(historicalData);
+        chart.timeScale().fitContent(); // 自動縮放圖表符合畫面
 
-        // 2. 準備收盤價陣列
+        // 2. 準備收盤價陣列與計算指標
         const closes = historicalData.map(d => d.close);
-        
-        // 3. 取得最新一筆數據進行判定
         const currentClose = closes[closes.length - 1];
         const currentSMA = calculateSMA(closes, 20);
         const currentRSI = calculateRSI(closes, 14);
         const currentMACD = calculateMACD(closes);
 
-        // 4. 純技術分析邏輯判斷
+        // 3. 純技術分析邏輯判斷
         let score = 0;
-        let resultsHTML = "";
+        let resultsHTML = `<li><strong>當前最新收盤價：</strong> $${currentClose.toFixed(2)}</li>`;
 
-        // 動能判斷 (RSI)
+        // RSI 判斷
         if (currentRSI !== null) {
             if(currentRSI > 70) { 
-                resultsHTML += `<li><span class="signal-sell">RSI (${currentRSI.toFixed(2)}) 進入超買區</span>，短期動能過熱，面臨回檔風險。</li>`; 
+                resultsHTML += `<li><span class="signal-sell">RSI (${currentRSI.toFixed(2)}) 進入超買區</span>：短期動能過熱，面臨回檔風險。</li>`; 
                 score -= 1; 
-            }
-            else if(currentRSI < 30) { 
-                resultsHTML += `<li><span class="signal-buy">RSI (${currentRSI.toFixed(2)}) 進入超賣區</span>，短線乖離過大，醞釀跌深反彈。</li>`; 
+            } else if(currentRSI < 30) { 
+                resultsHTML += `<li><span class="signal-buy">RSI (${currentRSI.toFixed(2)}) 進入超賣區</span>：短線乖離過大，醞釀跌深反彈。</li>`; 
                 score += 1; 
-            }
-            else { 
-                resultsHTML += `<li><span class="signal-neutral">RSI (${currentRSI.toFixed(2)}) 處於中性區間</span>，動能平穩。</li>`; 
+            } else { 
+                resultsHTML += `<li><span class="signal-neutral">RSI (${currentRSI.toFixed(2)}) 中性區間</span>：動能平穩，無極端超買賣現象。</li>`; 
             }
         }
 
-        // 趨勢判斷 (均線)
+        // 均線判斷
         if (currentSMA !== null) {
             if(currentClose > currentSMA) { 
-                resultsHTML += `<li><span class="signal-buy">最新收盤價 (${currentClose.toFixed(2)}) 站上 20 日均線 (${currentSMA.toFixed(2)})</span>，中期趨勢偏多。</li>`; 
+                resultsHTML += `<li><span class="signal-buy">站上 20 日均線 (${currentSMA.toFixed(2)})</span>：中期趨勢偏多，支撐強勁。</li>`; 
                 score += 1; 
-            }
-            else { 
-                resultsHTML += `<li><span class="signal-sell">最新收盤價 (${currentClose.toFixed(2)}) 跌破 20 日均線 (${currentSMA.toFixed(2)})</span>，中期趨勢偏空。</li>`; 
+            } else { 
+                resultsHTML += `<li><span class="signal-sell">跌破 20 日均線 (${currentSMA.toFixed(2)})</span>：中期趨勢偏空，上方壓力大。</li>`; 
                 score -= 1; 
             }
         }
 
-        // 買賣力道判斷 (MACD)
+        // MACD 判斷
         if (currentMACD !== null) {
             if(currentMACD > 0) { 
-                resultsHTML += `<li><span class="signal-buy">MACD 短期趨勢向上 (大於 0)</span>，多方力道相對增強。</li>`; 
+                resultsHTML += `<li><span class="signal-buy">MACD 柱狀圖大於 0</span>：多方力道相對增強，趨勢向上。</li>`; 
                 score += 1; 
-            }
-            else { 
-                resultsHTML += `<li><span class="signal-sell">MACD 短期趨勢向下 (小於 0)</span>，空方力道主導。</li>`; 
+            } else { 
+                resultsHTML += `<li><span class="signal-sell">MACD 柱狀圖小於 0</span>：空方力道主導，趨勢向下。</li>`; 
                 score -= 1; 
             }
         }
 
-        // 5. 輸出綜合結論
+        // 4. 輸出綜合結論
         resultsContainer.innerHTML = resultsHTML;
         
         if(score >= 2) { 
-            verdictContainer.innerHTML = `綜合判定：<span class="signal-buy">強勢偏多 (Buy)</span>，符合動能做多策略。`; 
+            verdictContainer.innerHTML = `🏆 綜合判定：<span class="signal-buy">強勢偏多 (Buy)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">技術面共識度高，符合動能做多策略，建議偏多操作。</span>`; 
         } else if (score <= -2) { 
-            verdictContainer.innerHTML = `綜合判定：<span class="signal-sell">弱勢偏空 (Sell)</span>，建議觀望或偏空操作。`; 
+            verdictContainer.innerHTML = `⚠️ 綜合判定：<span class="signal-sell">弱勢偏空 (Sell)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">技術面轉弱，建議空手觀望或執行停損/偏空策略。</span>`; 
         } else { 
-            verdictContainer.innerHTML = `綜合判定：<span class="signal-neutral">趨勢震盪 (Hold)</span>，缺乏明確方向，宜縮小部位。`; 
+            verdictContainer.innerHTML = `⚖️ 綜合判定：<span class="signal-neutral">趨勢震盪 (Hold)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">多空訊號分歧，缺乏明確單邊方向，建議縮小部位或等待突破。</span>`; 
         }
+
+        // 恢復按鈕狀態
+        btn.innerText = "搜尋並分析";
+        btn.disabled = false;
     }
+    
+    // 網頁載入時自動執行一次分析 (預設 NVDA)
+    window.onload = () => analyzeStock();
+    
+    // 支援按下 Enter 鍵搜尋
+    document.getElementById('symbol').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') analyzeStock();
+    });
 </script>
 </body>
 </html>
