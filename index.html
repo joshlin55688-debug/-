@@ -3,19 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>純技術分析儀表板 | API 即時抓取版</title>
+    <title>專業技術分析儀表板 | 即時 API 版</title>
     
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
+        .container { max-width: 1400px; margin: auto; }
         .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #444; flex: 1; background: #2a2a2a; color: white; }
-        button { padding: 10px 20px; font-size: 16px; border-radius: 5px; border: none; background-color: #007bff; color: white; cursor: pointer; transition: 0.3s; font-weight: bold;}
-        button:hover { background-color: #0056b3; }
-        #chart { width: 100%; height: 500px; background: #1e1e1e; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .analysis-panel { background: #1e1e1e; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        input { padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #444; flex: 1; background: #2a2a2a; color: white; }
+        button { padding: 12px 24px; font-size: 16px; border-radius: 5px; border: none; background-color: #2962ff; color: white; cursor: pointer; transition: 0.3s; font-weight: bold;}
+        button:hover { background-color: #1e4bd8; }
+        
+        /* 圖表區域設定 */
+        .chart-container { background: #1e222d; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        #main-chart { width: 100%; height: 500px; margin-bottom: 10px; }
+        #macd-chart { width: 100%; height: 200px; }
+        
+        .analysis-panel { background: #1e222d; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
         .signal-buy { color: #26a69a; font-weight: bold; }
         .signal-sell { color: #ef5350; font-weight: bold; }
         .signal-neutral { color: #ffb74d; font-weight: bold; }
@@ -25,113 +30,179 @@
 <body>
 
 <div class="container">
-    <h2>📈 技術分析儀表板 (即時 API 版)</h2>
+    <h2>📈 專業技術分析儀表板 (即時 API 版)</h2>
     <div class="search-bar">
-        <input type="text" id="symbol" placeholder="輸入代號 (美股: TSLA, 台股上市: 2330.TW, 台股上櫃: 3105.TWO)" value="NVDA" oninput="this.value = this.value.toUpperCase()">
+        <input type="text" id="symbol" placeholder="輸入代號 (美股: TSLA, 台股: 2330.TW)" value="NVDA" oninput="this.value = this.value.toUpperCase()">
         <button onclick="analyzeStock()" id="search-btn">搜尋並分析</button>
     </div>
     
-    <div id="chart"></div>
+    <div class="chart-container">
+        <div id="main-chart"></div>
+        <div id="macd-chart"></div>
+    </div>
 
     <div class="analysis-panel">
-        <h3>📊 演算法分析結論 <span id="trend-status"></span></h3>
+        <h3>📊 演算法綜合分析 <span id="trend-status"></span></h3>
         <ul id="ta-results">
-            <li>請輸入股票代號並點擊搜尋，系統將即時抓取最新數據...</li>
+            <li>請輸入股票代號並點擊搜尋，系統將即時抓取 3 年數據...</li>
         </ul>
         <h4 id="final-verdict" style="font-size: 1.2em; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;"></h4>
     </div>
 </div>
 
 <script>
-    // 初始化 TradingView 輕量級圖表
-    const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-        layout: { backgroundColor: '#1e1e1e', textColor: '#d1d4dc', },
+    // ==========================================
+    // 1. 初始化圖表 (主圖 + 副圖)
+    // ==========================================
+    const chartOptions = {
+        layout: { backgroundColor: '#1e222d', textColor: '#d1d4dc', },
         grid: { vertLines: { color: '#2b2b43' }, horzLines: { color: '#2b2b43' } },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#2b2b43' },
-        timeScale: { borderColor: '#2b2b43' },
-    });
+        timeScale: { borderColor: '#2b2b43', timeVisible: true },
+    };
 
-    const candleSeries = chart.addCandlestickSeries({
+    // 建立主圖 (K線 + 均線 + 布林 + 成交量)
+    const mainChart = LightweightCharts.createChart(document.getElementById('main-chart'), chartOptions);
+    const candleSeries = mainChart.addCandlestickSeries({
         upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
 
-    // === 核心修改：前端即時抓取 Yahoo Finance API ===
+    // 成交量在主圖下方 (Overlay)
+    const volumeSeries = mainChart.addHistogramSeries({
+        color: '#26a69a',
+        priceFormat: { type: 'volume' },
+        priceScaleId: '', // 將其獨立於價格軸
+    });
+    mainChart.priceScale('').applyOptions({
+        scaleMargins: { top: 0.8, bottom: 0 }, // 成交量佔主圖底部 20%
+    });
+
+    // 布林通道線條設定
+    const bbUpperSeries = mainChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.5)', lineWidth: 1, title: 'BB Upper' });
+    const bbMiddleSeries = mainChart.addLineSeries({ color: 'rgba(255, 152, 0, 0.8)', lineWidth: 2, title: 'SMA 20' }); // 中軌即 SMA20
+    const bbLowerSeries = mainChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.5)', lineWidth: 1, title: 'BB Lower' });
+
+    // 建立副圖 (MACD)
+    const macdChart = LightweightCharts.createChart(document.getElementById('macd-chart'), chartOptions);
+    const macdHistogramSeries = macdChart.addHistogramSeries({ priceFormat: { type: 'volume' }});
+    const macdLineSeries = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'MACD' });
+    const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2, title: 'Signal' });
+
+    // 讓主圖跟副圖的時間軸連動 (滑鼠拖曳時一起動)
+    mainChart.timeScale().subscribeVisibleTimeRangeChange(range => {
+        macdChart.timeScale().setVisibleRange(range);
+    });
+    macdChart.timeScale().subscribeVisibleTimeRangeChange(range => {
+        mainChart.timeScale().setVisibleRange(range);
+    });
+
+
+    // ==========================================
+    // 2. 抓取 Yahoo API 資料 (改為 3 年期)
+    // ==========================================
     async function fetchRealData(symbol) {
         try {
-            // Yahoo Finance API (抓取過去 1 年的日K線)
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
-            
-            // 使用 corsproxy.io 繞過瀏覽器跨網域限制 (CORS)
+            // 改為抓取 3 年 (3y)
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
             const response = await fetch(proxyUrl);
-            
-            if (!response.ok) {
-                throw new Error("網路請求失敗，請稍後再試");
-            }
+            if (!response.ok) throw new Error("網路請求失敗");
             
             const rawData = await response.json();
-
-            // 防呆：確認回傳資料是否包含該股票
-            if (!rawData.chart.result || rawData.chart.result.length === 0) {
-                throw new Error("找不到該股票，請確認代號是否正確");
-            }
+            if (!rawData.chart.result || rawData.chart.result.length === 0) throw new Error("找不到股票");
 
             const result = rawData.chart.result[0];
             const timestamps = result.timestamp;
             const quote = result.indicators.quote[0];
 
-            let chartData = [];
-            
-            // 將 Yahoo 的資料格式轉換為圖表所需的 { time, open, high, low, close }
+            let data = [];
             for (let i = 0; i < timestamps.length; i++) {
-                // 排除沒有交易的空白資料 (如假日)
                 if (quote.close[i] !== null && quote.open[i] !== null) {
-                    // Unix 時間戳轉換為 YYYY-MM-DD
-                    const date = new Date(timestamps[i] * 1000);
-                    const timeString = date.toISOString().split('T')[0];
-                    
-                    chartData.push({
+                    const timeString = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+                    data.push({
                         time: timeString,
                         open: Number(quote.open[i].toFixed(2)),
                         high: Number(quote.high[i].toFixed(2)),
                         low: Number(quote.low[i].toFixed(2)),
-                        close: Number(quote.close[i].toFixed(2))
+                        close: Number(quote.close[i].toFixed(2)),
+                        volume: quote.volume[i] || 0
                     });
                 }
             }
-            return chartData;
-
+            return data;
         } catch (error) {
             console.error(error);
-            alert(`抓取 ${symbol} 失敗！\n1. 請確認代號正確 (台股上市加 .TW，上櫃加 .TWO)\n2. 可能是免費代理伺服器忙碌，請過幾秒再試一次。\n詳細錯誤: ${error.message}`);
+            alert(`抓取 ${symbol} 失敗！請確認代號正確。`);
             return [];
         }
     }
 
-    // === 自製原生技術指標計算引擎 ===
+
+    // ==========================================
+    // 3. 技術指標計算引擎
+    // ==========================================
     function calculateSMA(data, period) {
-        if (data.length < period) return null;
-        let sum = 0;
-        for (let i = data.length - period; i < data.length; i++) { sum += data[i]; }
-        return sum / period;
+        let result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) { continue; }
+            let sum = 0;
+            for (let j = 0; j < period; j++) { sum += data[i - j].close; }
+            result.push({ time: data[i].time, value: sum / period });
+        }
+        return result;
     }
 
+    // 計算標準差 (用於布林通道)
+    function calculateStdDev(data, sma, period) {
+        let result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) continue;
+            let currentSma = sma.find(s => s.time === data[i].time).value;
+            let sumSq = 0;
+            for (let j = 0; j < period; j++) {
+                sumSq += Math.pow(data[i - j].close - currentSma, 2);
+            }
+            let stdDev = Math.sqrt(sumSq / period);
+            result.push({ time: data[i].time, value: stdDev });
+        }
+        return result;
+    }
+
+    function calculateEMA(data, period) {
+        let result = [];
+        let k = 2 / (period + 1);
+        
+        let sum = 0;
+        for(let i = 0; i < period; i++) { sum += data[i].close; }
+        let ema = sum / period; // 第一個 EMA 用 SMA 代替
+        
+        // 注意：為了在圖表上對齊時間，我們需要填補前面的空缺
+        for (let i = period; i < data.length; i++) {
+            ema = (data[i].close * k) + (ema * (1 - k));
+            result.push({ time: data[i].time, value: ema });
+        }
+        return result;
+    }
+
+    // 計算 RSI
     function calculateRSI(data, period) {
         if (data.length <= period) return null;
+        let closes = data.map(d => d.close);
         let gains = 0, losses = 0;
+        
         for (let i = 1; i <= period; i++) {
-            let change = data[i] - data[i - 1];
+            let change = closes[i] - closes[i - 1];
             if (change > 0) gains += change;
             else losses -= change;
         }
         let avgGain = gains / period;
         let avgLoss = losses / period;
 
-        for (let i = period + 1; i < data.length; i++) {
-            let change = data[i] - data[i - 1];
+        for (let i = period + 1; i < closes.length; i++) {
+            let change = closes[i] - closes[i - 1];
             let currentGain = change > 0 ? change : 0;
             let currentLoss = change < 0 ? Math.abs(change) : 0;
             avgGain = ((avgGain * (period - 1)) + currentGain) / period;
@@ -142,123 +213,140 @@
         return 100 - (100 / (1 + rs));
     }
 
-    function calculateEMA(data, period) {
-        if (data.length < period) return null;
-        let k = 2 / (period + 1);
-        let sum = 0;
-        for(let i = 0; i < period; i++) { sum += data[i]; }
-        let ema = sum / period; 
-        for (let i = period; i < data.length; i++) {
-            ema = (data[i] * k) + (ema * (1 - k));
-        }
-        return ema;
-    }
 
-    function calculateMACD(data) {
-        if (data.length < 26) return null;
-        let ema12 = calculateEMA(data, 12); 
-        let ema26 = calculateEMA(data, 26);
-        return ema12 - ema26; 
-    }
-
-    // === 主程式 ===
+    // ==========================================
+    // 4. 主程式：繪圖與分析
+    // ==========================================
     async function analyzeStock() {
-        const symbolInput = document.getElementById('symbol');
-        const symbol = symbolInput.value.toUpperCase().trim();
-        const btn = document.getElementById('search-btn');
-        const resultsContainer = document.getElementById('ta-results');
-        const verdictContainer = document.getElementById('final-verdict');
-        
+        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
         if (!symbol) return;
 
-        // UI 狀態更新
-        btn.innerText = "資料抓取中...";
-        btn.disabled = true;
-        resultsContainer.innerHTML = "<li>正在從 Yahoo Finance 獲取即時資料...</li>";
-        verdictContainer.innerHTML = "";
+        const btn = document.getElementById('search-btn');
+        btn.innerText = "資料抓取中..."; btn.disabled = true;
         
-        // 1. 獲取資料並畫圖
         const historicalData = await fetchRealData(symbol);
         
-        if (!historicalData || historicalData.length === 0) {
-            resultsContainer.innerHTML = `<li><span class="signal-sell">無法載入數據，請檢查代號是否正確。</span></li>`;
-            btn.innerText = "搜尋並分析";
-            btn.disabled = false;
+        if (historicalData.length === 0) {
+            btn.innerText = "搜尋並分析"; btn.disabled = false;
             return;
         }
 
+        // --- 繪製主圖資料 ---
         candleSeries.setData(historicalData);
-        chart.timeScale().fitContent(); // 自動縮放圖表符合畫面
+        
+        const volumeData = historicalData.map(d => ({
+            time: d.time,
+            value: d.volume,
+            color: d.close >= d.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+        }));
+        volumeSeries.setData(volumeData);
 
-        // 2. 準備收盤價陣列與計算指標
-        const closes = historicalData.map(d => d.close);
-        const currentClose = closes[closes.length - 1];
-        const currentSMA = calculateSMA(closes, 20);
-        const currentRSI = calculateRSI(closes, 14);
-        const currentMACD = calculateMACD(closes);
+        // --- 計算與繪製布林通道 ---
+        const sma20Data = calculateSMA(historicalData, 20);
+        const stdDevData = calculateStdDev(historicalData, sma20Data, 20);
+        
+        let upperData = [];
+        let lowerData = [];
+        
+        for(let i=0; i<sma20Data.length; i++) {
+            let time = sma20Data[i].time;
+            let sma = sma20Data[i].value;
+            let stdDev = stdDevData.find(s => s.time === time).value;
+            upperData.push({ time: time, value: sma + (stdDev * 2) });
+            lowerData.push({ time: time, value: sma - (stdDev * 2) });
+        }
 
-        // 3. 純技術分析邏輯判斷
+        bbMiddleSeries.setData(sma20Data);
+        bbUpperSeries.setData(upperData);
+        bbLowerSeries.setData(lowerData);
+
+        // --- 計算與繪製 MACD ---
+        const ema12 = calculateEMA(historicalData, 12);
+        const ema26 = calculateEMA(historicalData, 26);
+        
+        let macdLine = [];
+        // 找出同時有 EMA12 和 EMA26 的時間點
+        for (let i = 0; i < ema26.length; i++) {
+            let time = ema26[i].time;
+            let val12 = ema12.find(e => e.time === time).value;
+            let val26 = ema26[i].value;
+            macdLine.push({ time: time, close: val12 - val26 }); // 故意用 close 屬性方便丟入 EMA 函數
+        }
+
+        // 訊號線是 MACD Line 的 9 日 EMA
+        const signalLineRaw = calculateEMA(macdLine, 9);
+        
+        let macdLineDisplay = [];
+        let signalLineDisplay = [];
+        let histogramDisplay = [];
+
+        // 整理給圖表用的資料格式
+        for(let i=0; i<signalLineRaw.length; i++){
+            let time = signalLineRaw[i].time;
+            let macdVal = macdLine.find(m => m.time === time).close;
+            let signalVal = signalLineRaw[i].value;
+            let histVal = macdVal - signalVal;
+            
+            macdLineDisplay.push({ time: time, value: macdVal });
+            signalLineDisplay.push({ time: time, value: signalVal });
+            histogramDisplay.push({
+                time: time,
+                value: histVal,
+                color: histVal >= 0 ? (histVal > (histogramDisplay.length > 0 ? histogramDisplay[histogramDisplay.length-1].value : 0) ? '#26a69a' : '#80cbc4') : (histVal < (histogramDisplay.length > 0 ? histogramDisplay[histogramDisplay.length-1].value : 0) ? '#ef5350' : '#ef9a9a')
+            });
+        }
+
+        macdLineSeries.setData(macdLineDisplay);
+        macdSignalSeries.setData(signalLineDisplay);
+        macdHistogramSeries.setData(histogramDisplay);
+
+        // 自動縮放以顯示最近一年的資料 (雖然我們抓了三年)
+        mainChart.timeScale().fitContent();
+
+        // --- 執行文字分析 (取最新一天數據) ---
+        const currentClose = historicalData[historicalData.length - 1].close;
+        const currentRSI = calculateRSI(historicalData, 14);
+        const currentSMA20 = sma20Data[sma20Data.length - 1].value;
+        const currentUpper = upperData[upperData.length - 1].value;
+        const currentLower = lowerData[lowerData.length - 1].value;
+        
         let score = 0;
-        let resultsHTML = `<li><strong>當前最新收盤價：</strong> $${currentClose.toFixed(2)}</li>`;
+        let resultsHTML = `<li><strong>當前收盤價：</strong> $${currentClose.toFixed(2)}</li>`;
 
         // RSI 判斷
-        if (currentRSI !== null) {
-            if(currentRSI > 70) { 
-                resultsHTML += `<li><span class="signal-sell">RSI (${currentRSI.toFixed(2)}) 進入超買區</span>：短期動能過熱，面臨回檔風險。</li>`; 
-                score -= 1; 
-            } else if(currentRSI < 30) { 
-                resultsHTML += `<li><span class="signal-buy">RSI (${currentRSI.toFixed(2)}) 進入超賣區</span>：短線乖離過大，醞釀跌深反彈。</li>`; 
-                score += 1; 
-            } else { 
-                resultsHTML += `<li><span class="signal-neutral">RSI (${currentRSI.toFixed(2)}) 中性區間</span>：動能平穩，無極端超買賣現象。</li>`; 
-            }
-        }
+        if(currentRSI > 70) { resultsHTML += `<li><span class="signal-sell">RSI (${currentRSI.toFixed(2)}) 超買</span>：短期動能過熱。</li>`; score -= 1; }
+        else if(currentRSI < 30) { resultsHTML += `<li><span class="signal-buy">RSI (${currentRSI.toFixed(2)}) 超賣</span>：短線醞釀反彈。</li>`; score += 1; }
+        else { resultsHTML += `<li><span class="signal-neutral">RSI (${currentRSI.toFixed(2)}) 中性</span>：動能平穩。</li>`; }
 
-        // 均線判斷
-        if (currentSMA !== null) {
-            if(currentClose > currentSMA) { 
-                resultsHTML += `<li><span class="signal-buy">站上 20 日均線 (${currentSMA.toFixed(2)})</span>：中期趨勢偏多，支撐強勁。</li>`; 
-                score += 1; 
-            } else { 
-                resultsHTML += `<li><span class="signal-sell">跌破 20 日均線 (${currentSMA.toFixed(2)})</span>：中期趨勢偏空，上方壓力大。</li>`; 
-                score -= 1; 
-            }
-        }
+        // 布林通道判斷
+        if(currentClose > currentUpper) { resultsHTML += `<li><span class="signal-sell">突破布林上軌</span>：股價強勢但乖離過大，注意拉回。</li>`; score -= 1; }
+        else if(currentClose < currentLower) { resultsHTML += `<li><span class="signal-buy">跌破布林下軌</span>：股價弱勢但可能出現超跌反彈。</li>`; score += 1; }
+        else if(currentClose > currentSMA20) { resultsHTML += `<li><span class="signal-buy">站上布林中軌 (20MA)</span>：多方控盤中。</li>`; score += 1; }
+        else { resultsHTML += `<li><span class="signal-sell">跌破布林中軌 (20MA)</span>：空方控盤中。</li>`; score -= 1; }
 
         // MACD 判斷
-        if (currentMACD !== null) {
-            if(currentMACD > 0) { 
-                resultsHTML += `<li><span class="signal-buy">MACD 柱狀圖大於 0</span>：多方力道相對增強，趨勢向上。</li>`; 
-                score += 1; 
-            } else { 
-                resultsHTML += `<li><span class="signal-sell">MACD 柱狀圖小於 0</span>：空方力道主導，趨勢向下。</li>`; 
-                score -= 1; 
-            }
+        if (histogramDisplay.length > 0) {
+            const lastHist = histogramDisplay[histogramDisplay.length - 1].value;
+            const prevHist = histogramDisplay[histogramDisplay.length - 2].value;
+            
+            if(lastHist > 0 && lastHist > prevHist) { resultsHTML += `<li><span class="signal-buy">MACD 紅柱伸長</span>：多方動能增強。</li>`; score += 1; }
+            else if(lastHist > 0 && lastHist < prevHist) { resultsHTML += `<li><span class="signal-neutral">MACD 紅柱縮短</span>：多方動能衰退。</li>`; }
+            else if(lastHist < 0 && lastHist < prevHist) { resultsHTML += `<li><span class="signal-sell">MACD 綠柱伸長</span>：空方動能增強。</li>`; score -= 1; }
+            else if(lastHist < 0 && lastHist > prevHist) { resultsHTML += `<li><span class="signal-neutral">MACD 綠柱縮短</span>：空方動能減弱，可能見底。</li>`; score += 1; }
         }
 
-        // 4. 輸出綜合結論
-        resultsContainer.innerHTML = resultsHTML;
-        
-        if(score >= 2) { 
-            verdictContainer.innerHTML = `🏆 綜合判定：<span class="signal-buy">強勢偏多 (Buy)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">技術面共識度高，符合動能做多策略，建議偏多操作。</span>`; 
-        } else if (score <= -2) { 
-            verdictContainer.innerHTML = `⚠️ 綜合判定：<span class="signal-sell">弱勢偏空 (Sell)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">技術面轉弱，建議空手觀望或執行停損/偏空策略。</span>`; 
-        } else { 
-            verdictContainer.innerHTML = `⚖️ 綜合判定：<span class="signal-neutral">趨勢震盪 (Hold)</span><br><span style="font-size:0.85em; color:#aaa; font-weight:normal;">多空訊號分歧，缺乏明確單邊方向，建議縮小部位或等待突破。</span>`; 
-        }
+        document.getElementById('ta-results').innerHTML = resultsHTML;
+        let verdict = document.getElementById('final-verdict');
+        if(score >= 2) { verdict.innerHTML = `🏆 綜合判定：<span class="signal-buy">強勢偏多 (Buy)</span>`; }
+        else if (score <= -2) { verdict.innerHTML = `⚠️ 綜合判定：<span class="signal-sell">弱勢偏空 (Sell)</span>`; }
+        else { verdict.innerHTML = `⚖️ 綜合判定：<span class="signal-neutral">震盪整理 (Hold)</span>`; }
 
-        // 恢復按鈕狀態
-        btn.innerText = "搜尋並分析";
-        btn.disabled = false;
+        btn.innerText = "搜尋並分析"; btn.disabled = false;
     }
     
-    // 網頁載入時自動執行一次分析 (預設 NVDA)
+    // 預設載入
     window.onload = () => analyzeStock();
-    
-    // 支援按下 Enter 鍵搜尋
-    document.getElementById('symbol').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') analyzeStock();
-    });
+    document.getElementById('symbol').addEventListener('keypress', e => { if (e.key === 'Enter') analyzeStock(); });
 </script>
 </body>
 </html>
