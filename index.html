@@ -30,11 +30,8 @@
         #main-chart  { width: 100%; height: 500px; margin-bottom: 10px; }
         #macd-chart  { width: 100%; height: 250px; }
 
-        /* 擴充為三欄式排版 */
-        .analysis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        @media (max-width: 1024px) { .analysis-grid { grid-template-columns: 1fr 1fr; } }
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .analysis-grid { grid-template-columns: 1fr; } }
-        
         .panel { background: #1e222d; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3); height: 500px; overflow-y: auto; }
 
         .signal-buy    { color: #26a69a; font-weight: bold; }
@@ -42,40 +39,56 @@
         .signal-neutral{ color: #ffb74d; font-weight: bold; }
         h2, h3 { margin-top: 0; color: #fff; }
 
-        /* 目標價進度條樣式 */
-        .target-scale { display: flex; justify-content: space-between; font-size: 0.85em; color: #aaa; margin-top: 15px; }
-        .target-bar-bg { background: #444; height: 8px; border-radius: 4px; margin: 5px 0 20px 0; position: relative; }
-        .current-price-dot { position: absolute; width: 12px; height: 12px; background: #fff; border-radius: 50%; top: -2px; box-shadow: 0 0 8px rgba(255,255,255,0.8); transform: translateX(-50%); transition: left 0.5s; }
-        .mean-price-marker { position: absolute; width: 4px; height: 16px; background: #26a69a; top: -4px; transform: translateX(-50%); }
-
         #ai-content { font-size: 0.95em; color: #ccc; padding-right: 10px; }
         #ai-content h1, #ai-content h2, #ai-content h3 { color: #e1bee7; margin-top: 15px; margin-bottom: 5px; font-size: 1.1em; }
         #ai-content p { margin-top: 0; }
         .api-link { color: #2962ff; text-decoration: none; }
         .api-link:hover { text-decoration: underline; }
 
-        ::-webkit-scrollbar        { width: 8px; }
-        ::-webkit-scrollbar-track  { background: #1e222d; }
-        ::-webkit-scrollbar-thumb  { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar       { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e222d; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #777; }
+
+        /* ── 共識目標價面板 ── */
+        .consensus-panel { background: #1e222d; padding: 25px; border-radius: 8px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .consensus-grid  { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+        .stat-card { background: #252836; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid #2e3347; }
+        .stat-card .s-label { font-size: 0.72em; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+        .stat-card .s-value { font-size: 1.45em; font-weight: bold; color: #fff; }
+        .stat-card .s-sub   { font-size: 0.78em; color: #777; margin-top: 3px; }
+        .rec-badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-weight: bold; font-size: 0.92em; }
+        .target-bar-track { background: #2b2b43; border-radius: 4px; height: 8px; position: relative; margin: 6px 0 4px; }
+        .target-bar-fill  { height: 100%; border-radius: 4px; background: linear-gradient(to right, #ef5350 0%, #ffb74d 50%, #26a69a 100%); }
+        .target-bar-pin   { position: absolute; top: -5px; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #2962ff; transform: translateX(-50%); box-shadow: 0 0 6px rgba(41,98,255,0.6); }
+        .dist-bars { display: flex; gap: 6px; align-items: flex-end; height: 64px; margin-top: 8px; }
+        .dist-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .dist-bar-col .d-count { font-size: 0.75em; color: #ccc; }
+        .dist-bar-col .d-bar   { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; }
+        .dist-bar-col .d-label { font-size: 0.62em; color: #888; text-align: center; line-height: 1.3; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header-panel">
         <div>
-            <h2 style="margin-bottom:8px;">🤖 AI 智能整合看盤系統</h2>
+            <h2 style="margin-bottom:8px;">🤖 AI 智能看盤系統</h2>
             <div class="search-bar">
-                <input type="text" id="symbol" placeholder="輸入代號 (如 NVDA, 2330.TW)" value="NVDA"
+                <input type="text" id="symbol" placeholder="輸入代號 (如 TSLA, 2330.TW)" value="NVDA"
                        oninput="this.value = this.value.toUpperCase()">
-                <button class="btn-primary" id="search-btn" onclick="analyzeStock()">抓取大數據</button>
+                <button class="btn-primary" id="search-btn" onclick="analyzeStock()">抓取技術線圖</button>
             </div>
         </div>
         <div class="api-bar">
-            <span>🔑 Gemini 金鑰：</span>
-            <input type="password" id="gemini-key" placeholder="貼上你的 API Key" style="width:240px; padding:8px;">
-            <button class="btn-primary" style="padding:8px 14px; font-size:13px;" onclick="saveApiKey()">儲存</button>
+            <span>🔑 Gemini：</span>
+            <input type="password" id="gemini-key" placeholder="Gemini API Key" style="width:180px; padding:8px;">
+            <button class="btn-primary" style="padding:8px 12px; font-size:13px;" onclick="saveGeminiKey()">儲存</button>
             <a href="https://aistudio.google.com/app/apikey" target="_blank" class="api-link">免費獲取</a>
+            <span style="color:#333; margin:0 4px;">｜</span>
+            <span>📊 Alpha Vantage：</span>
+            <input type="password" id="av-key" placeholder="Alpha Vantage API Key" style="width:180px; padding:8px;">
+            <button class="btn-primary" style="padding:8px 12px; font-size:13px;" onclick="saveAvKey()">儲存</button>
+            <a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="api-link">免費獲取</a>
         </div>
     </div>
 
@@ -86,28 +99,27 @@
 
     <div class="analysis-grid">
         <div class="panel">
-            <h3 style="border-bottom: 1px solid #444; padding-bottom: 10px;">🎯 機構評等與目標價</h3>
-            <div id="analyst-content">請輸入股票代號並點擊搜尋...</div>
-        </div>
-
-        <div class="panel">
-            <h3 style="border-bottom: 1px solid #444; padding-bottom: 10px;">📊 演算法技術分析</h3>
+            <h3>📊 演算法技術分析</h3>
             <ul id="ta-results"><li>請輸入股票代號並點擊搜尋...</li></ul>
             <h4 id="final-verdict" style="font-size:1.2em; border-top:1px solid #444; padding-top:15px; margin-top:15px;"></h4>
         </div>
-
         <div class="panel">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; padding-bottom:10px; margin-bottom:15px;">
-                <h3 style="margin:0;">✨ Gemini 深度洞察</h3>
-                <button class="btn-ai" id="ai-btn" style="padding: 6px 12px; font-size: 14px;" onclick="generateAIAnalysis()">結合數據生成</button>
+                <h3 style="margin:0;">✨ Gemini 企業洞察</h3>
+                <button class="btn-ai" id="ai-btn" onclick="generateAIAnalysis()">一鍵生成</button>
             </div>
-            <div id="ai-content">請先完成數據抓取，再點擊「結合數據生成」，AI 將綜合機構預測與當前股價給出分析。</div>
+            <div id="ai-content">請先輸入 API Key 並儲存，接著點擊「一鍵生成」，AI 將為你分析該公司基本面與風險。</div>
         </div>
+    </div>
+
+    <div class="consensus-panel" id="consensus-panel">
+        <h3 style="margin:0; color:#aaa;">🎯 華爾街機構共識目標價</h3>
+        <p style="color:#555; margin:8px 0 0; font-size:0.9em;">搜尋股票後自動載入分析師資料...</p>
     </div>
 </div>
 
 <script>
-// ── 常數與全域變數 ────────────────────────────────────────────────────────
+// ── 常數 ───────────────────────────────────────────────────────────────────
 const CORS_PROXIES = [
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -119,21 +131,25 @@ const MACD_FAST   = 12;
 const MACD_SLOW   = 26;
 const MACD_SIGNAL = 9;
 
-// 儲存最新的股價與機構預測，供 AI 寫報告時取用
-let globalCurrentPrice = 0;
-let globalTargetData = null;
-
 // ── API Key ────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('geminiApiKey');
-    if (saved) document.getElementById('gemini-key').value = saved;
-    analyzeStock();
+    const gk = localStorage.getItem('geminiApiKey');
+    const ak = localStorage.getItem('avApiKey');
+    if (gk) document.getElementById('gemini-key').value = gk;
+    if (ak) document.getElementById('av-key').value = ak;
+    // 讓瀏覽器先完成圖表容器的 layout，再呼叫 analyzeStock
+    setTimeout(analyzeStock, 0);
 });
 
-function saveApiKey() {
-    const key = document.getElementById('gemini-key').value.trim();
-    if (key) { localStorage.setItem('geminiApiKey', key); alert('已儲存！'); }
-    else      { localStorage.removeItem('geminiApiKey'); alert('已清除！'); }
+function saveGeminiKey() {
+    const k = document.getElementById('gemini-key').value.trim();
+    k ? localStorage.setItem('geminiApiKey', k) : localStorage.removeItem('geminiApiKey');
+    alert(k ? 'Gemini Key 已儲存！' : 'Gemini Key 已清除！');
+}
+function saveAvKey() {
+    const k = document.getElementById('av-key').value.trim();
+    k ? localStorage.setItem('avApiKey', k) : localStorage.removeItem('avApiKey');
+    alert(k ? 'Alpha Vantage Key 已儲存！' : 'Alpha Vantage Key 已清除！');
 }
 
 // ── 圖表初始化 ─────────────────────────────────────────────────────────────
@@ -149,7 +165,8 @@ const mainChart = LightweightCharts.createChart(
     { ...baseLayout, rightPriceScale: { borderColor: '#2b2b43' } }
 );
 const candleSeries = mainChart.addCandlestickSeries({
-    upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    upColor: '#26a69a', downColor: '#ef5350',
+    borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
 });
 const volumeSeries = mainChart.addHistogramSeries({
     color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: 'vol',
@@ -162,7 +179,9 @@ const bbLowerSeries  = mainChart.addLineSeries({ color: 'rgba(41,98,255,0.5)',  
 
 const macdChart = LightweightCharts.createChart(
     document.getElementById('macd-chart'),
-    { ...baseLayout, rightPriceScale: { visible: true, borderColor: '#2b2b43' }, leftPriceScale:  { visible: true, borderColor: '#2b2b43' } }
+    { ...baseLayout,
+      rightPriceScale: { visible: true, borderColor: '#2b2b43' },
+      leftPriceScale:  { visible: true, borderColor: '#2b2b43' } }
 );
 const macdHistSeries   = macdChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'right' });
 const macdLineSeries   = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'MACD',       priceScaleId: 'right' });
@@ -172,29 +191,45 @@ const rsiSeries        = macdChart.addLineSeries({ color: '#E1BEE7', lineWidth: 
 rsiSeries.createPriceLine({ price: 70, color: '#ef5350', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '超買' });
 rsiSeries.createPriceLine({ price: 30, color: '#26a69a', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '超賣' });
 
+// 防止雙向同步產生無限迴圈；r.from/r.to 在資料尚未就緒時可能為 null
 let syncing = false;
-mainChart.timeScale().subscribeVisibleTimeRangeChange(r => { if (syncing || !r) return; syncing = true; macdChart.timeScale().setVisibleRange(r); syncing = false; });
-macdChart.timeScale().subscribeVisibleTimeRangeChange(r => { if (syncing || !r) return; syncing = true; mainChart.timeScale().setVisibleRange(r); syncing = false; });
+mainChart.timeScale().subscribeVisibleTimeRangeChange(r => {
+    if (syncing || !r?.from || !r?.to) return;
+    syncing = true;
+    try { macdChart.timeScale().setVisibleRange(r); } catch { /* macd 資料尚未就緒 */ }
+    syncing = false;
+});
+macdChart.timeScale().subscribeVisibleTimeRangeChange(r => {
+    if (syncing || !r?.from || !r?.to) return;
+    syncing = true;
+    try { mainChart.timeScale().setVisibleRange(r); } catch { /* main 資料尚未就緒 */ }
+    syncing = false;
+});
 
-// ── 資料清洗與抓取 ──────────────────────────────────────────────────────────
-function safeLineData(arr) { return arr.filter(d => d?.time && Number.isFinite(d.value)).sort((a, b) => a.time < b.time ? -1 : 1); }
-function safeCandleData(arr) { return arr.filter(d => d?.time && [d.open, d.high, d.low, d.close].every(Number.isFinite)).sort((a, b) => a.time < b.time ? -1 : 1); }
+// ── 資料清洗 ────────────────────────────────────────────────────────────────
+function safeLineData(arr) {
+    return arr
+        .filter(d => d?.time && Number.isFinite(d.value))
+        .sort((a, b) => a.time < b.time ? -1 : 1);
+}
+function safeCandleData(arr) {
+    return arr
+        .filter(d => d?.time && [d.open, d.high, d.low, d.close].every(Number.isFinite))
+        .sort((a, b) => a.time < b.time ? -1 : 1);
+}
 
-async function fetchFromYahoo(url) {
+// ── 抓取資料 ────────────────────────────────────────────────────────────────
+async function fetchRealData(symbol) {
+    const target = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
     let raw = null;
     for (const makeUrl of CORS_PROXIES) {
         try {
-            const res = await fetch(makeUrl(url));
+            const res = await fetch(makeUrl(target));
             if (res.ok) { raw = await res.json(); break; }
         } catch { /* try next */ }
     }
-    if (!raw) throw new Error('API 伺服器忙線中');
-    return raw;
-}
+    if (!raw?.chart?.result) throw new Error('代理伺服器目前皆忙線中，請稍後再試。');
 
-async function fetchRealData(symbol) {
-    const raw = await fetchFromYahoo(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`);
-    if (!raw?.chart?.result) throw new Error('查無K線歷史資料');
     const { timestamp = [], indicators: { quote: [q = {}] } } = raw.chart.result[0];
     const seen = new Set();
     const data = [];
@@ -203,49 +238,60 @@ async function fetchRealData(symbol) {
         const time = new Date(timestamp[i] * 1000).toISOString().slice(0, 10);
         if (seen.has(time)) continue;
         seen.add(time);
-        data.push({ time, open: +q.open[i].toFixed(2), high: +q.high[i].toFixed(2), low: +q.low[i].toFixed(2), close: +q.close[i].toFixed(2), volume: q.volume[i] || 0 });
+        data.push({
+            time,
+            open:   +q.open[i].toFixed(2),
+            high:   +q.high[i].toFixed(2),
+            low:    +q.low[i].toFixed(2),
+            close:  +q.close[i].toFixed(2),
+            volume: q.volume[i] || 0,
+        });
     }
     return safeCandleData(data);
 }
 
-// 新增：抓取機構目標價資料
-async function fetchAnalystData(symbol) {
-    try {
-        const raw = await fetchFromYahoo(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData`);
-        return raw.quoteSummary.result[0].financialData;
-    } catch (e) {
-        return null; // 若無資料（如部分台股），回傳 null 而非中斷程式
-    }
-}
-
-// ── 指標計算 ───────────────────────────────────────────────────────────────
+// ── 指標計算（皆為 O(n)） ───────────────────────────────────────────────────
 function calcSMA(data, period) {
-    const result = []; let sum = 0;
+    const result = [];
+    let sum = 0;
     for (let i = 0; i < data.length; i++) {
-        sum += data[i].close; if (i >= period) sum -= data[i - period].close;
+        sum += data[i].close;
+        if (i >= period) sum -= data[i - period].close;
         if (i >= period - 1) result.push({ time: data[i].time, value: sum / period });
     }
     return result;
 }
+
+// sma 與 data 對齊：sma[j] 對應 data[j + period - 1]
 function calcBBands(data, sma, period) {
     const upper = [], lower = [];
     sma.forEach((s, j) => {
-        const base = j + period - 1; let sumSq = 0;
+        const base = j + period - 1;
+        let sumSq = 0;
         for (let k = 0; k < period; k++) sumSq += (data[base - k].close - s.value) ** 2;
         const std = Math.sqrt(sumSq / period);
-        upper.push({ time: s.time, value: s.value + std * 2 }); lower.push({ time: s.time, value: s.value - std * 2 });
+        upper.push({ time: s.time, value: s.value + std * 2 });
+        lower.push({ time: s.time, value: s.value - std * 2 });
     });
     return { upper, lower };
 }
+
 function calcEMA(data, period, closeKey = 'close') {
-    const result = []; if (data.length < period) return result;
-    const k = 2 / (period + 1); let ema = data.slice(0, period).reduce((s, d) => s + d[closeKey], 0) / period;
+    const result = [];
+    if (data.length < period) return result;
+    const k = 2 / (period + 1);
+    let ema = data.slice(0, period).reduce((s, d) => s + d[closeKey], 0) / period;
     result.push({ time: data[period - 1].time, value: ema });
-    for (let i = period; i < data.length; i++) { ema = data[i][closeKey] * k + ema * (1 - k); result.push({ time: data[i].time, value: ema }); }
+    for (let i = period; i < data.length; i++) {
+        ema = data[i][closeKey] * k + ema * (1 - k);
+        result.push({ time: data[i].time, value: ema });
+    }
     return result;
 }
+
 function calcRSI(data, period) {
-    const result = []; if (data.length <= period) return result;
+    const result = [];
+    if (data.length <= period) return result;
     let avgGain = 0, avgLoss = 0;
     for (let i = 1; i <= period; i++) {
         const d = data[i].close - data[i - 1].close;
@@ -256,28 +302,218 @@ function calcRSI(data, period) {
     result.push({ time: data[period].time, value: rsi(avgLoss === 0 ? Infinity : avgGain / avgLoss) });
     for (let i = period + 1; i < data.length; i++) {
         const d = data[i].close - data[i - 1].close;
-        avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period; avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
+        avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period;
+        avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
         result.push({ time: data[i].time, value: rsi(avgLoss === 0 ? Infinity : avgGain / avgLoss) });
     }
     return result;
 }
+
 function calcMACD(data) {
-    const ema12 = calcEMA(data, MACD_FAST); const ema26 = calcEMA(data, MACD_SLOW);
+    const ema12 = calcEMA(data, MACD_FAST);
+    const ema26 = calcEMA(data, MACD_SLOW);
     const map12 = new Map(ema12.map(e => [e.time, e.value]));
-    const macdRaw = ema26.filter(e => map12.has(e.time)).map(e => ({ time: e.time, close: map12.get(e.time) - e.value }));
+    // macdRaw: use 'close' key = MACD value (so calcEMA re-uses closeKey param)
+    const macdRaw = ema26
+        .filter(e => map12.has(e.time))
+        .map(e => ({ time: e.time, close: map12.get(e.time) - e.value }));
+
     const signal = calcEMA(macdRaw, MACD_SIGNAL, 'close');
-    const lineData = [], sigData = [], histData = []; let prevHist = 0;
+    const sigMap = new Map(signal.map(s => [s.time, s.value]));
+
+    const lineData = [], sigData = [], histData = [];
+    let prevHist = 0;
     signal.forEach(s => {
-        const m = macdRaw.find(r => r.time === s.time); if (!m) return;
+        const m = macdRaw.find(r => r.time === s.time);
+        if (!m) return;
         const hist = m.close - s.value;
-        const color = hist >= 0 ? (hist >= prevHist ? '#26a69a' : '#80cbc4') : (hist <= prevHist ? '#ef5350'  : '#ef9a9a');
-        lineData.push({ time: s.time, value: m.close }); sigData.push({ time: s.time, value: s.value }); histData.push({ time: s.time, value: hist, color });
+        const color = hist >= 0
+            ? (hist >= prevHist ? '#26a69a' : '#80cbc4')
+            : (hist <= prevHist ? '#ef5350'  : '#ef9a9a');
+        lineData.push({ time: s.time, value: m.close });
+        sigData.push({ time: s.time, value: s.value });
+        histData.push({ time: s.time, value: hist, color });
         prevHist = hist;
     });
     return { lineData, sigData, histData };
 }
 
-// ── 主程式 (整合三面板資料) ─────────────────────────────────────────────────
+// ── 分析師共識目標價 ────────────────────────────────────────────────────────
+const REC_MAP = {
+    strong_buy:   { label: '強力買進', color: '#26a69a' },
+    buy:          { label: '買進',     color: '#4caf50' },
+    hold:         { label: '持有',     color: '#ffb74d' },
+    underperform: { label: '表現落後', color: '#ff7043' },
+    sell:         { label: '賣出',     color: '#ef5350' },
+};
+
+async function fetchAnalystData(symbol) {
+    const key = localStorage.getItem('avApiKey');
+    if (!key) return null;
+
+    // Alpha Vantage 原生支援 CORS，不需代理
+    try {
+        const res = await fetch(
+            `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${key}`
+        );
+        if (!res.ok) return null;
+        const d = await res.json();
+
+        const mean = parseFloat(d.AnalystTargetPrice);
+        if (!mean || isNaN(mean)) return null;
+
+        const strongBuy  = parseInt(d.AnalystRatingStrongBuy)  || 0;
+        const buy        = parseInt(d.AnalystRatingBuy)        || 0;
+        const hold       = parseInt(d.AnalystRatingHold)       || 0;
+        const sell       = parseInt(d.AnalystRatingSell)       || 0;
+        const strongSell = parseInt(d.AnalystRatingStrongSell) || 0;
+        const total      = strongBuy + buy + hold + sell + strongSell;
+
+        const score = total > 0
+            ? (strongBuy*1 + buy*2 + hold*3 + sell*4 + strongSell*5) / total
+            : null;
+        const recKey = score == null ? null
+            : score <= 1.5 ? 'strong_buy'
+            : score <= 2.5 ? 'buy'
+            : score <= 3.5 ? 'hold'
+            : score <= 4.5 ? 'underperform'
+            : 'sell';
+
+        return {
+            mean,
+            high:       parseFloat(d['52WeekHigh'])  || null,
+            low:        parseFloat(d['52WeekLow'])   || null,
+            analysts:   total || null,
+            recMean:    score,
+            recKey,
+            highIsTarget: false,   // 標記 high/low 來源為 52 週而非分析師目標
+            strongBuy, buy, hold, sell, strongSell,
+        };
+    } catch { return null; }
+}
+
+function renderConsensus(d, currentPrice) {
+    const panel = document.getElementById('consensus-panel');
+    if (!d?.mean) {
+        const hasKey = !!localStorage.getItem('avApiKey');
+        panel.innerHTML = `<h3>🎯 華爾街機構共識目標價</h3>
+            <p style="color:#666; margin:8px 0 0;">
+                ${hasKey
+                    ? '此股票暫無分析師資料（僅支援美股；免費方案每日上限 25 次）。'
+                    : '請在上方輸入 <strong style="color:#aaa;">Alpha Vantage API Key</strong> 並儲存，即可顯示機構目標價與評等。<br><a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="api-link">→ 免費申請（無需信用卡）</a>'}
+            </p>`;
+        return;
+    }
+    const rec    = REC_MAP[d.recKey] || { label: d.recKey || '—', color: '#aaa' };
+    const upside = currentPrice ? (d.mean - currentPrice) / currentPrice * 100 : null;
+    const pct    = (d.low != null && d.high != null && d.high > d.low)
+        ? Math.min(100, Math.max(0, (currentPrice - d.low) / (d.high - d.low) * 100))
+        : 50;
+    const fmt    = v => v != null ? `$${v.toFixed(2)}` : '—';
+    const total  = d.strongBuy + d.buy + d.hold + d.sell + d.strongSell;
+    const upColor = upside >= 0 ? '#26a69a' : '#ef5350';
+
+    const distBars = [
+        { label: '強力買進', v: d.strongBuy,  color: '#26a69a' },
+        { label: '買進',     v: d.buy,        color: '#4caf50' },
+        { label: '持有',     v: d.hold,       color: '#ffb74d' },
+        { label: '賣出',     v: d.sell,       color: '#ff7043' },
+        { label: '強力賣出', v: d.strongSell, color: '#ef5350' },
+    ].map(b => `
+        <div class="dist-bar-col">
+            <span class="d-count">${b.v}</span>
+            <div class="d-bar" style="height:${total > 0 ? Math.max(4, b.v / total * 52) : 4}px; background:${b.color};"></div>
+            <span class="d-label">${b.label}</span>
+        </div>`).join('');
+
+    panel.innerHTML = `
+        <h3 style="margin:0 0 4px;">🎯 華爾街機構共識目標價</h3>
+        <div class="consensus-grid">
+            <div class="stat-card">
+                <div class="s-label">平均目標價</div>
+                <div class="s-value">${fmt(d.mean)}</div>
+                ${upside != null ? `<div class="s-sub" style="color:${upColor}">${upside >= 0 ? '▲' : '▼'} ${Math.abs(upside).toFixed(1)}% 潛在空間</div>` : ''}
+            </div>
+            <div class="stat-card">
+                <div class="s-label">52 週最高</div>
+                <div class="s-value" style="color:#26a69a">${fmt(d.high)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="s-label">52 週最低</div>
+                <div class="s-value" style="color:#ef5350">${fmt(d.low)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="s-label">覆蓋分析師</div>
+                <div class="s-value">${d.analysts ?? '—'}</div>
+                <div class="s-sub">位機構分析師</div>
+            </div>
+            <div class="stat-card">
+                <div class="s-label">建議評等</div>
+                <div class="s-value" style="margin-top:2px;">
+                    <span class="rec-badge" style="background:${rec.color}22; color:${rec.color}; border:1px solid ${rec.color}55">${rec.label}</span>
+                </div>
+                ${d.recMean != null ? `<div class="s-sub">評分 ${d.recMean.toFixed(1)}&thinsp;/&thinsp;5.0</div>` : ''}
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; color:#666;">
+                <span>52W 低 ${fmt(d.low)}</span>
+                <span style="color:#aaa;">現價 ${fmt(currentPrice)}</span>
+                <span>52W 高 ${fmt(d.high)}</span>
+            </div>
+            <div class="target-bar-track">
+                <div class="target-bar-fill" style="width:100%"></div>
+                <div class="target-bar-pin" style="left:${pct.toFixed(1)}%"></div>
+            </div>
+            <div style="text-align:center; font-size:0.75em; color:#555; margin-top:2px;">現價在 52 週高低區間中的位置</div>
+        </div>
+
+        ${total > 0 ? `
+        <div style="margin-top:20px; border-top:1px solid #2e3347; padding-top:16px;">
+            <div style="font-size:0.8em; color:#666; margin-bottom:4px;">評等分佈（最新月份）</div>
+            <div class="dist-bars">${distBars}</div>
+        </div>` : ''}`;
+}
+
+// ── Gemini 分析 ─────────────────────────────────────────────────────────────
+async function generateAIAnalysis() {
+    const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+    const apiKey = localStorage.getItem('geminiApiKey');
+    const aiContent = document.getElementById('ai-content');
+    const aiBtn = document.getElementById('ai-btn');
+
+    if (!apiKey) { alert('請先在上方輸入並儲存 Gemini API 金鑰！'); return; }
+
+    aiBtn.textContent = '生成中...'; aiBtn.disabled = true;
+    aiContent.innerHTML = '正在請 AI 專家研讀資料，請稍候約 5~10 秒...';
+
+    const prompt = `你是一位專業的證券分析師。請用繁體中文，針對股票代號「${symbol}」進行簡要的公司基本面分析。
+請包含：
+1. **公司業務與護城河**
+2. **近期市場焦點**
+3. **潛在風險提示**`;
+
+    try {
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
+        );
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err?.error?.message || `API 請求失敗 (${res.status})，請確認金鑰是否正確。`);
+        }
+        const data = await res.json();
+        aiContent.innerHTML = marked.parse(data.candidates[0].content.parts[0].text);
+    } catch (e) {
+        aiContent.innerHTML = `<span style="color:#ef5350;">AI 分析失敗：${e.message}</span>`;
+    } finally {
+        aiBtn.textContent = '一鍵生成'; aiBtn.disabled = false;
+    }
+}
+
+// ── 主程式 ──────────────────────────────────────────────────────────────────
 async function analyzeStock() {
     const symbol = document.getElementById('symbol').value.toUpperCase().trim();
     if (!symbol) return;
@@ -285,92 +521,61 @@ async function analyzeStock() {
     const btn = document.getElementById('search-btn');
     const resultsList = document.getElementById('ta-results');
     const verdict = document.getElementById('final-verdict');
-    const analystDiv = document.getElementById('analyst-content');
-    
-    document.getElementById('ai-content').innerHTML = '資料更新完畢，請點擊上方「結合數據生成」獲取最新 AI 洞察報告。';
+    document.getElementById('ai-content').innerHTML = '點擊上方按鈕獲取 AI 分析。';
 
-    btn.textContent = '資料抓取中...'; btn.disabled = true;
+    btn.textContent = '資料解析中...'; btn.disabled = true;
     resultsList.innerHTML = '<li>連線抓取並清洗資料中...</li>';
-    analystDiv.innerHTML = '正在獲取各大機構共識數據...';
     verdict.innerHTML = '';
+    document.getElementById('consensus-panel').innerHTML =
+        '<h3 style="margin:0; color:#aaa;">🎯 華爾街機構共識目標價</h3><p style="color:#555; margin:8px 0 0; font-size:0.9em;">載入分析師資料中...</p>';
 
     try {
-        // 同時非同步抓取「歷史 K 線」與「機構目標價」
-        const [data, analystData] = await Promise.all([
+        const [chartResult, analystResult] = await Promise.allSettled([
             fetchRealData(symbol),
-            fetchAnalystData(symbol)
+            fetchAnalystData(symbol),
         ]);
-        
-        if (data.length < 30) throw new Error('歷史資料量不足。');
+        if (chartResult.status === 'rejected') throw chartResult.reason;
+        const data        = chartResult.value;
+        const analystData = analystResult.status === 'fulfilled' ? analystResult.value : null;
+        if (data.length < 30) throw new Error('歷史資料量不足，請確認代號是否正確。');
 
-        // 存入全域變數供 AI 使用
-        globalCurrentPrice = data[data.length - 1].close;
-        globalTargetData = analystData;
+        // 清空舊資料
+        [candleSeries, volumeSeries, bbUpperSeries, bbMiddleSeries, bbLowerSeries,
+         macdLineSeries, macdSignalSeries, macdHistSeries, rsiSeries]
+            .forEach(s => s.setData([]));
 
-        // 【面板 1：渲染機構目標價】
-        if (analystData && analystData.targetMeanPrice && analystData.targetMeanPrice.raw) {
-            const mean = analystData.targetMeanPrice.raw;
-            const low = analystData.targetLowPrice.raw;
-            const high = analystData.targetHighPrice.raw;
-            const curPrice = globalCurrentPrice;
-            const ups = (((mean / curPrice) - 1) * 100).toFixed(2);
-            const isOptimistic = ups > 0;
-
-            // 計算圓點在進度條上的相對位置 (0% 到 100%)
-            let range = high - low;
-            let dotPos = 0;
-            let meanPos = 50; // 預設中間
-            if (range > 0) {
-                dotPos = ((curPrice - low) / range) * 100;
-                dotPos = Math.max(0, Math.min(100, dotPos)); // 鎖定在 0~100 內
-                meanPos = ((mean - low) / range) * 100;
-            }
-
-            analystDiv.innerHTML = `
-                <p style="font-size: 1.1em; margin-bottom: 5px;">機構平均目標價：<strong style="font-size: 1.3em; color: ${isOptimistic ? '#26a69a' : '#ef5350'}">$${mean}</strong></p>
-                <p style="margin-top: 0; color: #aaa;">潛在空間：${isOptimistic ? '📈' : '📉'} <strong>${ups}%</strong></p>
-                
-                <div class="target-scale"><span>保守估值 $${low}</span><span>樂觀估值 $${high}</span></div>
-                <div class="target-bar-bg">
-                    <div class="mean-price-marker" style="left: ${meanPos}%;" title="平均目標價"></div>
-                    <div class="current-price-dot" style="left: ${dotPos}%;" title="當前股價 $${curPrice}"></div>
-                </div>
-                <p style="font-size: 0.85em; color: #888; text-align: center;">⚪ 白點為當前股價，🟩 綠線為平均目標價</p>
-                
-                <div style="margin-top: 20px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; font-size: 0.9em;">
-                    <strong>投資評等建議：</strong><br>
-                    ${analystData.recommendationKey ? analystData.recommendationKey.toUpperCase() : '無數據'} 
-                    (基於 ${analystData.numberOfAnalystOpinions?.raw || 0} 位華爾街分析師)
-                </div>
-            `;
-        } else {
-            analystDiv.innerHTML = "<p style='color:#aaa; line-height: 1.6;'>⚠️ 暫無可用的機構目標價數據。<br>（註：Yahoo Finance 對於美股大型股的覆蓋率較佳，部分台股或冷門股可能無此資料）</p>";
-        }
-
-        // 【面板 2：渲染圖表與計算 TA】
-        [candleSeries, volumeSeries, bbUpperSeries, bbMiddleSeries, bbLowerSeries, macdLineSeries, macdSignalSeries, macdHistSeries, rsiSeries].forEach(s => s.setData([]));
-
+        // 主圖：K線 + 成交量
         candleSeries.setData(data);
-        volumeSeries.setData(safeLineData(data.map(d => ({ time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)' }))));
+        volumeSeries.setData(safeLineData(data.map(d => ({
+            time: d.time, value: d.volume,
+            color: d.close >= d.open ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)',
+        }))));
 
+        // 布林通道
         const sma20 = calcSMA(data, BB_PERIOD);
         const { upper, lower } = calcBBands(data, sma20, BB_PERIOD);
-        bbMiddleSeries.setData(safeLineData(sma20)); bbUpperSeries.setData(safeLineData(upper)); bbLowerSeries.setData(safeLineData(lower));
+        bbMiddleSeries.setData(safeLineData(sma20));
+        bbUpperSeries.setData(safeLineData(upper));
+        bbLowerSeries.setData(safeLineData(lower));
 
+        // MACD
         const { lineData, sigData, histData } = calcMACD(data);
-        macdLineSeries.setData(safeLineData(lineData)); macdSignalSeries.setData(safeLineData(sigData)); macdHistSeries.setData(safeLineData(histData));
+        macdLineSeries.setData(safeLineData(lineData));
+        macdSignalSeries.setData(safeLineData(sigData));
+        macdHistSeries.setData(safeLineData(histData));
 
+        // RSI
         const rsiData = calcRSI(data, RSI_PERIOD);
         rsiSeries.setData(safeLineData(rsiData));
 
         mainChart.timeScale().fitContent();
 
-        // 技術分析文字總結
-        const last = data[data.length - 1];
-        const curRSI = rsiData.at(-1)?.value ?? 50;
-        const curSMA20 = sma20.at(-1)?.value ?? last.close;
-        const curUpper = upper.at(-1)?.value ?? last.close;
-        const curLower = lower.at(-1)?.value ?? last.close;
+        // ── 文字分析 ──────────────────────────────────────────────────────
+        const last      = data[data.length - 1];
+        const curRSI    = rsiData.at(-1)?.value  ?? 50;
+        const curSMA20  = sma20.at(-1)?.value    ?? last.close;
+        const curUpper  = upper.at(-1)?.value    ?? last.close;
+        const curLower  = lower.at(-1)?.value    ?? last.close;
 
         let score = 0;
         const items = [`<li><strong>當前收盤價：</strong> $${last.close.toFixed(2)}</li>`];
@@ -385,11 +590,12 @@ async function analyzeStock() {
         else                            { items.push(`<li><span class="signal-sell">跌破布林中軌 (20MA)</span>：空方控盤中。</li>`); score--; }
 
         if (histData.length >= 2) {
-            const h0 = histData.at(-1).value, h1 = histData.at(-2).value;
+            const h0 = histData.at(-1).value;
+            const h1 = histData.at(-2).value;
             if      (h0 > 0 && h0 > h1) { items.push(`<li><span class="signal-buy">MACD 紅柱伸長</span>：多方動能增強。</li>`); score++; }
-            else if (h0 > 0 && h0 <= h1){ items.push(`<li><span class="signal-neutral">MACD 紅柱縮短</span>：多方動能衰退。</li>`); }
+            else if (h0 > 0 && h0 <= h1) { items.push(`<li><span class="signal-neutral">MACD 紅柱縮短</span>：多方動能衰退。</li>`); }
             else if (h0 < 0 && h0 < h1) { items.push(`<li><span class="signal-sell">MACD 綠柱伸長</span>：空方動能增強。</li>`); score--; }
-            else if (h0 < 0 && h0 >= h1){ items.push(`<li><span class="signal-neutral">MACD 綠柱縮短</span>：空方動能減弱。</li>`); score++; }
+            else if (h0 < 0 && h0 >= h1) { items.push(`<li><span class="signal-neutral">MACD 綠柱縮短</span>：空方動能減弱。</li>`); score++; }
         }
 
         resultsList.innerHTML = items.join('');
@@ -397,59 +603,14 @@ async function analyzeStock() {
         else if (score <= -2) verdict.innerHTML = `⚠️ 技術面判定：<span class="signal-sell">弱勢偏空 (Sell)</span>`;
         else                  verdict.innerHTML = `⚖️ 技術面判定：<span class="signal-neutral">震盪整理 (Hold)</span>`;
 
+        renderConsensus(analystData, last.close);
+
     } catch (e) {
+        console.error('[analyzeStock]', e.message, e.stack);
         resultsList.innerHTML = `<li><span class="signal-sell">錯誤：${e.message}</span></li>`;
-        analystDiv.innerHTML = `⚠️ 無法取得機構數據`;
+        renderConsensus(null, 0);
     } finally {
-        btn.textContent = '抓取大數據'; btn.disabled = false;
-    }
-}
-
-// ── 面板 3：結合數據與 AI 的深度分析 ───────────────────────────────────────────
-async function generateAIAnalysis() {
-    const symbol = document.getElementById('symbol').value.toUpperCase().trim();
-    const apiKey = localStorage.getItem('geminiApiKey');
-    const aiContent = document.getElementById('ai-content');
-    const aiBtn = document.getElementById('ai-btn');
-
-    if (!apiKey) { alert('請先在上方輸入並儲存 Gemini 金鑰！'); return; }
-    if (globalCurrentPrice === 0) { alert('請先點擊「抓取大數據」獲得最新價格後再請求 AI 分析！'); return; }
-
-    aiBtn.textContent = '思考中...'; aiBtn.disabled = true;
-    aiContent.innerHTML = '正在綜合當前股價與機構預測進行分析，請稍候...';
-
-    // 準備要餵給 AI 的背景資料
-    let targetStr = "目前無華爾街機構目標價數據，請單純從企業基本面進行推估。";
-    if (globalTargetData && globalTargetData.targetMeanPrice) {
-        const mean = globalTargetData.targetMeanPrice.raw;
-        const ups = (((mean / globalCurrentPrice) - 1) * 100).toFixed(2);
-        targetStr = `華爾街機構平均目標價為 $${mean} (潛在漲/跌幅空間約 ${ups}%)。`;
-    }
-
-    const prompt = `你是一位頂尖的證券分析師。請用繁體中文，針對股票代號「${symbol}」進行深度洞察。
-已知市場最新客觀數據：
-- 當前股價為 $${globalCurrentPrice}
-- ${targetStr}
-
-請根據上述數據與你的知識庫，給出結構化的分析報告（字數控制在 400 字以內）：
-1. **公司核心競爭力** (這家公司的護城河或主要賺錢業務是什麼？)
-2. **估值與目標價探討** (結合上述我提供的股價與機構預期，判斷目前市場情緒是否過熱或被低估？)
-3. **潛在風險提示** (未來一兩年可能面臨的最大阻礙是什麼？)`;
-
-    try {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
-        );
-        if (!res.ok) throw new Error('API 請求失敗，請確認金鑰是否正確及額度。');
-        
-        const data = await res.json();
-        aiContent.innerHTML = marked.parse(data.candidates[0].content.parts[0].text);
-    } catch (e) {
-        aiContent.innerHTML = `<span style="color:#ef5350;">AI 分析失敗：${e.message}</span>`;
-    } finally {
-        aiBtn.textContent = '結合數據生成'; aiBtn.disabled = false;
+        btn.textContent = '抓取技術線圖'; btn.disabled = false;
     }
 }
 
