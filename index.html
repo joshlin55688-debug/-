@@ -3,37 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業技術分析儀表板</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+    <title>AI 智能技術分析儀表板</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
     
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    
-    <style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
         .container { max-width: 1400px; margin: auto; }
-        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #444; flex: 1; background: #2a2a2a; color: white; }
-        button { padding: 12px 24px; font-size: 16px; border-radius: 5px; border: none; background-color: #2962ff; color: white; cursor: pointer; transition: 0.3s; font-weight: bold;}
-        button:hover { background-color: #1e4bd8; }
         
+        /* 搜尋列與 API 設定區 */
+        .header-panel { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; justify-content: space-between; align-items: center; background: #1e222d; padding: 15px; border-radius: 8px;}
+        .search-bar { display: flex; gap: 10px; flex: 1; min-width: 300px; }
+        .api-bar { display: flex; gap: 10px; align-items: center; font-size: 0.9em; color: #aaa;}
+        
+        input { padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #444; background: #2a2a2a; color: white; }
+        .search-bar input { flex: 1; }
+        button { padding: 12px 24px; font-size: 16px; border-radius: 5px; border: none; cursor: pointer; transition: 0.3s; font-weight: bold;}
+        .btn-primary { background-color: #2962ff; color: white; }
+        .btn-primary:hover { background-color: #1e4bd8; }
+        .btn-ai { background-color: #9c27b0; color: white; }
+        .btn-ai:hover { background-color: #7b1fa2; }
+        
+        /* 圖表區 */
         .chart-container { background: #1e222d; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         #main-chart { width: 100%; height: 500px; margin-bottom: 10px; }
-        #macd-chart { width: 100%; height: 200px; }
+        #macd-chart { width: 100%; height: 250px; } /* 加高一點容納 RSI */
         
-        .analysis-panel { background: #1e222d; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        /* 兩欄式分析區 */
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: #1e222d; padding: 25px; border-radius: 8px; line-height: 1.8; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        
         .signal-buy { color: #26a69a; font-weight: bold; }
         .signal-sell { color: #ef5350; font-weight: bold; }
         .signal-neutral { color: #ffb74d; font-weight: bold; }
         h2, h3 { margin-top: 0; color: #fff; }
+        
+        /* AI 內容樣式 */
+        #ai-content { font-size: 0.95em; color: #ccc; }
+        #ai-content h1, #ai-content h2, #ai-content h3 { color: #e1bee7; margin-top: 15px; margin-bottom: 5px; font-size: 1.1em;}
+        #ai-content p { margin-top: 0; }
+        .api-link { color: #2962ff; text-decoration: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📈 專業技術分析儀表板 (無敵裝甲版)</h2>
-    <div class="search-bar">
-        <input type="text" id="symbol" placeholder="輸入代號 (美股: TSLA, 台股: 2330.TW)" value="NVDA" oninput="this.value = this.value.toUpperCase()">
-        <button onclick="analyzeStock()" id="search-btn">搜尋並分析</button>
+    <div class="header-panel">
+        <div>
+            <h2 style="margin-bottom: 5px;">🤖 AI 智能看盤系統</h2>
+            <div class="search-bar">
+                <input type="text" id="symbol" placeholder="輸入代號 (如 TSLA, 2330.TW)" value="NVDA" oninput="this.value = this.value.toUpperCase()">
+                <button class="btn-primary" onclick="analyzeStock()" id="search-btn">抓取技術線圖</button>
+            </div>
+        </div>
+        <div class="api-bar">
+            <span>🔑 Gemini API 金鑰：</span>
+            <input type="password" id="gemini-key" placeholder="貼上你的 API Key" style="width: 250px; padding: 8px;">
+            <button class="btn-primary" style="padding: 8px 15px; font-size: 14px;" onclick="saveApiKey()">儲存</button>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="api-link">免費獲取</a>
+        </div>
     </div>
     
     <div class="chart-container">
@@ -41,28 +69,57 @@
         <div id="macd-chart"></div>
     </div>
 
-    <div class="analysis-panel">
-        <h3>📊 演算法綜合分析 <span id="trend-status"></span></h3>
-        <ul id="ta-results">
-            <li>請輸入股票代號並點擊搜尋...</li>
-        </ul>
-        <h4 id="final-verdict" style="font-size: 1.2em; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;"></h4>
+    <div class="analysis-grid">
+        <div class="panel">
+            <h3>📊 演算法技術分析</h3>
+            <ul id="ta-results"><li>請輸入股票代號並點擊搜尋...</li></ul>
+            <h4 id="final-verdict" style="font-size: 1.2em; border-top: 1px solid #444; padding-top: 15px; margin-top: 15px;"></h4>
+        </div>
+        
+        <div class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 0;">✨ Gemini 企業基本面洞察</h3>
+                <button class="btn-ai" onclick="generateAIAnalysis()" id="ai-btn">一鍵生成分析</button>
+            </div>
+            <div id="ai-content">
+                請先輸入 API Key 並儲存，接著點擊「一鍵生成分析」，AI 將會幫你快速了解這家公司的基本面、護城河與潛在風險。
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // 1. 初始化圖表 
+    // 0. API Key 儲存機制
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedKey = localStorage.getItem('geminiApiKey');
+        if (savedKey) { document.getElementById('gemini-key').value = savedKey; }
+        analyzeStock(); // 初始載入預設股票
+    });
+
+    function saveApiKey() {
+        const key = document.getElementById('gemini-key').value.trim();
+        if (key) {
+            localStorage.setItem('geminiApiKey', key);
+            alert("API 金鑰已安全儲存於瀏覽器中！");
+        } else {
+            localStorage.removeItem('geminiApiKey');
+            alert("API 金鑰已清除！");
+        }
+    }
+
+    // ==========================================
+    // 1. 初始化圖表 (啟用左右雙 Y 軸)
     // ==========================================
     const chartOptions = {
         layout: { backgroundColor: '#1e222d', textColor: '#d1d4dc' },
         grid: { vertLines: { color: '#2b2b43' }, horzLines: { color: '#2b2b43' } },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#2b2b43' },
         timeScale: { borderColor: '#2b2b43', timeVisible: true }
     };
 
-    const mainChart = LightweightCharts.createChart(document.getElementById('main-chart'), chartOptions);
+    const mainChart = LightweightCharts.createChart(document.getElementById('main-chart'), { ...chartOptions, rightPriceScale: { borderColor: '#2b2b43' } });
     const candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350' });
     const volumeSeries = mainChart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: '' });
     mainChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
@@ -71,66 +128,63 @@
     const bbMiddleSeries = mainChart.addLineSeries({ color: 'rgba(255, 152, 0, 0.8)', lineWidth: 2, title: 'SMA 20' });
     const bbLowerSeries = mainChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.5)', lineWidth: 1, title: 'BB Lower' });
 
-    const macdChart = LightweightCharts.createChart(document.getElementById('macd-chart'), chartOptions);
-    const macdHistogramSeries = macdChart.addHistogramSeries({ priceFormat: { type: 'volume' }});
-    const macdLineSeries = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'MACD' });
-    const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2, title: 'Signal' });
+    // MACD 與 RSI 複合圖表 (開啟左右兩側座標軸)
+    const macdChart = LightweightCharts.createChart(document.getElementById('macd-chart'), { 
+        ...chartOptions,
+        rightPriceScale: { visible: true, borderColor: '#2b2b43' }, // 右邊給 MACD
+        leftPriceScale: { visible: true, borderColor: '#2b2b43' }   // 左邊給 RSI
+    });
+    
+    // MACD 綁定右側 Y 軸
+    const macdHistogramSeries = macdChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'right' });
+    const macdLineSeries = macdChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'MACD', priceScaleId: 'right' });
+    const macdSignalSeries = macdChart.addLineSeries({ color: '#FF6D00', lineWidth: 2, title: 'Signal', priceScaleId: 'right' });
+    
+    // RSI 綁定左側 Y 軸
+    const rsiSeries = macdChart.addLineSeries({ color: '#E1BEE7', lineWidth: 1.5, title: 'RSI (14)', priceScaleId: 'left' });
+    rsiSeries.createPriceLine({ price: 70, color: '#ef5350', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '超買區' });
+    rsiSeries.createPriceLine({ price: 30, color: '#26a69a', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '超賣區' });
 
+    // 同步時間軸
     mainChart.timeScale().subscribeVisibleTimeRangeChange(range => { macdChart.timeScale().setVisibleRange(range); });
     macdChart.timeScale().subscribeVisibleTimeRangeChange(range => { mainChart.timeScale().setVisibleRange(range); });
 
-    // 過濾髒數據的神器
     function getSafeData(data) {
-        return data.filter(d => d && d.time && d.value !== undefined && !isNaN(d.value))
-                   .sort((a, b) => a.time.localeCompare(b.time));
+        return data.filter(d => d && d.time && d.value !== undefined && !isNaN(d.value)).sort((a, b) => a.time.localeCompare(b.time));
     }
 
     // ==========================================
-    // 2. 抓取資料 (多重代理伺服器)
+    // 2. 抓取資料 & 指標計算
     // ==========================================
     async function fetchRealData(symbol) {
         const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
-        const proxies = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://thingproxy.freeboard.io/fetch/${targetUrl}`
-        ];
-
+        const proxies = [ `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` ];
         let rawData = null;
         for (let proxy of proxies) {
             try {
                 const response = await fetch(proxy);
                 if (response.ok) { rawData = await response.json(); break; }
-            } catch (e) { console.warn("切換代理伺服器..."); }
+            } catch (e) { console.warn("切換代理..."); }
         }
-
-        if (!rawData || !rawData.chart.result) throw new Error("代理伺服器全數塞車，請稍後再試！");
-
+        if (!rawData || !rawData.chart.result) throw new Error("資料抓取失敗。");
         const result = rawData.chart.result[0];
         const timestamps = result.timestamp || [];
         const quote = result.indicators.quote[0] || {};
-        
         let dataMap = new Map();
         for (let i = 0; i < timestamps.length; i++) {
             if (quote.open[i] == null || quote.close[i] == null) continue;
             const timeString = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
             dataMap.set(timeString, {
-                time: timeString,
-                open: quote.open[i], high: quote.high[i], low: quote.low[i], close: quote.close[i],
-                volume: quote.volume[i] || 0
+                time: timeString, open: quote.open[i], high: quote.high[i], low: quote.low[i], close: quote.close[i], volume: quote.volume[i] || 0
             });
         }
         return Array.from(dataMap.values()).sort((a, b) => a.time.localeCompare(b.time));
     }
 
-    // ==========================================
-    // 3. 技術指標計算引擎
-    // ==========================================
     function calculateSMA(data, period) {
         let result = [];
         for (let i = period - 1; i < data.length; i++) {
-            let sum = 0;
-            for (let j = 0; j < period; j++) sum += data[i - j].close;
+            let sum = 0; for (let j = 0; j < period; j++) sum += data[i - j].close;
             result.push({ time: data[i].time, value: sum / period });
         }
         return result;
@@ -141,8 +195,7 @@
         for (let i = period - 1; i < data.length; i++) {
             let currentSma = sma.find(s => s.time === data[i].time)?.value;
             if (currentSma === undefined) continue;
-            let sumSq = 0;
-            for (let j = 0; j < period; j++) sumSq += Math.pow(data[i - j].close - currentSma, 2);
+            let sumSq = 0; for (let j = 0; j < period; j++) sumSq += Math.pow(data[i - j].close - currentSma, 2);
             result.push({ time: data[i].time, value: Math.sqrt(sumSq / period) });
         }
         return result;
@@ -151,8 +204,7 @@
     function calculateEMA(data, period) {
         let result = [];
         if (data.length < period) return result;
-        let k = 2 / (period + 1);
-        let sum = 0;
+        let k = 2 / (period + 1); let sum = 0;
         for(let i = 0; i < period; i++) sum += data[i].close || 0;
         let ema = sum / period; 
         result.push({ time: data[period - 1].time, value: ema });
@@ -163,8 +215,10 @@
         return result;
     }
 
-    function calculateRSI(data, period) {
-        if (data.length <= period) return 50; 
+    // 將 RSI 改寫為返回時間序列陣列 (為了畫圖)
+    function calculateRSI_Series(data, period) {
+        let result = [];
+        if (data.length <= period) return result; 
         let closes = data.map(d => d.close);
         let gains = 0, losses = 0;
         for (let i = 1; i <= period; i++) {
@@ -172,17 +226,79 @@
             if (change > 0) gains += change; else losses -= change;
         }
         let avgGain = gains / period, avgLoss = losses / period;
+        
+        let rs = avgLoss === 0 ? 0 : avgGain / avgLoss;
+        result.push({ time: data[period].time, value: avgLoss === 0 ? 100 : 100 - (100 / (1 + rs)) });
+
         for (let i = period + 1; i < closes.length; i++) {
             let change = closes[i] - closes[i - 1];
             avgGain = ((avgGain * (period - 1)) + Math.max(change, 0)) / period;
             avgLoss = ((avgLoss * (period - 1)) + Math.abs(Math.min(change, 0))) / period;
+            rs = avgLoss === 0 ? 0 : avgGain / avgLoss;
+            result.push({ time: data[i].time, value: avgLoss === 0 ? 100 : 100 - (100 / (1 + rs)) });
         }
-        return avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
+        return result;
     }
 
     // ==========================================
-    // 4. 主程式
+    // 3. Gemini AI 整合功能
     // ==========================================
+    async function generateAIAnalysis() {
+        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+        const apiKey = localStorage.getItem('geminiApiKey');
+        const aiContent = document.getElementById('ai-content');
+        const aiBtn = document.getElementById('ai-btn');
+
+        if (!apiKey) {
+            alert("請先在上方輸入並儲存 Gemini API 金鑰！");
+            return;
+        }
+
+        aiBtn.innerText = "生成中...";
+        aiBtn.disabled = true;
+        aiContent.innerHTML = "正在請 AI 專家研讀資料，請稍候約 5~10 秒...";
+
+        const prompt = `你是一位專業的證券分析師。請用繁體中文，針對股票代號「${symbol}」進行簡要的公司基本面分析。
+請包含以下三個標題結構：
+1. **公司業務與護城河** (這家公司靠什麼賺錢？有什麼獨特優勢？)
+2. **近期市場焦點** (近期產業趨勢或值得注意的題材)
+3. **潛在風險提示** (投資這家公司需要注意的風險)
+字數請控制在 400 字以內，文字要精煉易讀。如果該代號是 ETF，請分析其成分與追蹤邏輯。`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "API 請求失敗，請確認金鑰是否正確。");
+            }
+
+            const data = await response.json();
+            const markdownText = data.candidates[0].content.parts[0].text;
+            
+            // 使用 marked.js 將 Markdown 轉換為漂亮的 HTML
+            aiContent.innerHTML = marked.parse(markdownText);
+
+        } catch (error) {
+            aiContent.innerHTML = `<span style="color: #ef5350;">AI 分析失敗：${error.message}</span><br>請確認 API 金鑰正確，且具有足夠的額度。`;
+        } finally {
+            aiBtn.innerText = "一鍵生成分析";
+            aiBtn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // 4. 主程式 (繪圖與技術分析)
+    // ==========================================
+    let currentStockData = []; // 儲存當前股票資料供 AI 使用
+
     async function analyzeStock() {
         const symbol = document.getElementById('symbol').value.toUpperCase().trim();
         if (!symbol) return;
@@ -190,6 +306,7 @@
         const btn = document.getElementById('search-btn');
         const resultsContainer = document.getElementById('ta-results');
         const verdictContainer = document.getElementById('final-verdict');
+        document.getElementById('ai-content').innerHTML = "點擊「一鍵生成分析」獲取最新基本面洞察。"; // 重置 AI 區塊
         
         btn.innerText = "資料解析中..."; btn.disabled = true;
         resultsContainer.innerHTML = "<li>連線抓取並清洗資料中...</li>";
@@ -197,71 +314,67 @@
 
         try {
             const historicalData = await fetchRealData(symbol);
-            if (historicalData.length < 30) throw new Error("資料量不足無法分析。");
+            if (historicalData.length < 30) throw new Error("資料量不足。");
+            currentStockData = historicalData;
 
-            // 繪製主圖與成交量
+            // 清空圖表
+            candleSeries.setData([]); volumeSeries.setData([]);
+            bbMiddleSeries.setData([]); bbUpperSeries.setData([]); bbLowerSeries.setData([]);
+            macdLineSeries.setData([]); macdSignalSeries.setData([]); macdHistogramSeries.setData([]);
+            rsiSeries.setData([]);
+
+            // 主圖
             candleSeries.setData(historicalData);
-            volumeSeries.setData(getSafeData(historicalData.map(d => ({
-                time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
-            }))));
+            volumeSeries.setData(getSafeData(historicalData.map(d => ({ time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)' }))));
 
-            // 繪製布林通道
+            // 布林
             const sma20Data = calculateSMA(historicalData, 20);
             const stdDevData = calculateStdDev(historicalData, sma20Data, 20);
             let upperData = [], lowerData = [];
-            
             sma20Data.forEach(sma => {
                 let std = stdDevData.find(s => s.time === sma.time)?.value || 0;
                 upperData.push({ time: sma.time, value: sma.value + (std * 2) });
                 lowerData.push({ time: sma.time, value: sma.value - (std * 2) });
             });
+            bbMiddleSeries.setData(getSafeData(sma20Data)); bbUpperSeries.setData(getSafeData(upperData)); bbLowerSeries.setData(getSafeData(lowerData));
 
-            bbMiddleSeries.setData(getSafeData(sma20Data));
-            bbUpperSeries.setData(getSafeData(upperData));
-            bbLowerSeries.setData(getSafeData(lowerData));
-
-            // 繪製 MACD
+            // MACD
             const ema12 = calculateEMA(historicalData, 12);
             const ema26 = calculateEMA(historicalData, 26);
             let macdLine = [];
-            
             ema26.forEach(e26 => {
                 let e12 = ema12.find(e => e.time === e26.time);
                 if(e12) macdLine.push({ time: e26.time, close: e12.value - e26.value });
             });
-
             const signalLineRaw = calculateEMA(macdLine, 9);
             let macdLineDisplay = [], signalLineDisplay = [], histogramDisplay = [];
-
             signalLineRaw.forEach((sig, index) => {
                 let m = macdLine.find(m => m.time === sig.time);
                 if(m) {
                     let histVal = m.close - sig.value;
                     let prevHist = index > 0 ? (macdLineDisplay[index-1].value - signalLineRaw[index-1].value) : 0;
                     let color = histVal >= 0 ? (histVal > prevHist ? '#26a69a' : '#80cbc4') : (histVal < prevHist ? '#ef5350' : '#ef9a9a');
-                    
                     macdLineDisplay.push({ time: sig.time, value: m.close });
                     signalLineDisplay.push({ time: sig.time, value: sig.value });
                     histogramDisplay.push({ time: sig.time, value: histVal, color: color });
                 }
             });
+            macdLineSeries.setData(getSafeData(macdLineDisplay)); macdSignalSeries.setData(getSafeData(signalLineDisplay)); macdHistogramSeries.setData(getSafeData(histogramDisplay));
 
-            macdLineSeries.setData(getSafeData(macdLineDisplay));
-            macdSignalSeries.setData(getSafeData(signalLineDisplay));
-            macdHistogramSeries.setData(getSafeData(histogramDisplay));
+            // RSI
+            const rsiData = calculateRSI_Series(historicalData, 14);
+            rsiSeries.setData(getSafeData(rsiData));
 
             mainChart.timeScale().fitContent();
 
-            // 執行文字分析
+            // 文字分析
             const currentClose = historicalData[historicalData.length - 1].close;
-            const currentRSI = calculateRSI(historicalData, 14);
+            const currentRSI = rsiData.length > 0 ? rsiData[rsiData.length - 1].value : 50;
             const currentSMA20 = sma20Data.length > 0 ? sma20Data[sma20Data.length - 1].value : currentClose;
             const currentUpper = upperData.length > 0 ? upperData[upperData.length - 1].value : currentClose;
             const currentLower = lowerData.length > 0 ? lowerData[lowerData.length - 1].value : currentClose;
             
-            let score = 0;
-            let resultsHTML = `<li><strong>當前收盤價：</strong> $${currentClose.toFixed(2)}</li>`;
-
+            let score = 0; let resultsHTML = `<li><strong>當前收盤價：</strong> $${currentClose.toFixed(2)}</li>`;
             if(currentRSI > 70) { resultsHTML += `<li><span class="signal-sell">RSI (${currentRSI.toFixed(2)}) 超買</span>：短期動能過熱。</li>`; score -= 1; }
             else if(currentRSI < 30) { resultsHTML += `<li><span class="signal-buy">RSI (${currentRSI.toFixed(2)}) 超賣</span>：短線醞釀反彈。</li>`; score += 1; }
             else { resultsHTML += `<li><span class="signal-neutral">RSI (${currentRSI.toFixed(2)}) 中性</span>：動能平穩。</li>`; }
@@ -281,18 +394,15 @@
             }
 
             resultsContainer.innerHTML = resultsHTML;
-            if(score >= 2) { verdictContainer.innerHTML = `🏆 綜合判定：<span class="signal-buy">強勢偏多 (Buy)</span>`; }
-            else if (score <= -2) { verdictContainer.innerHTML = `⚠️ 綜合判定：<span class="signal-sell">弱勢偏空 (Sell)</span>`; }
-            else { verdictContainer.innerHTML = `⚖️ 綜合判定：<span class="signal-neutral">震盪整理 (Hold)</span>`; }
+            if(score >= 2) { verdictContainer.innerHTML = `🏆 技術面判定：<span class="signal-buy">強勢偏多 (Buy)</span>`; }
+            else if (score <= -2) { verdictContainer.innerHTML = `⚠️ 技術面判定：<span class="signal-sell">弱勢偏空 (Sell)</span>`; }
+            else { verdictContainer.innerHTML = `⚖️ 技術面判定：<span class="signal-neutral">震盪整理 (Hold)</span>`; }
 
-        } catch (error) {
-            resultsContainer.innerHTML = `<li><span class="signal-sell">錯誤：${error.message}</span></li>`;
-        }
+        } catch (error) { resultsContainer.innerHTML = `<li><span class="signal-sell">錯誤：${error.message}</span></li>`; }
 
-        btn.innerText = "搜尋並分析"; btn.disabled = false;
+        btn.innerText = "抓取技術線圖"; btn.disabled = false;
     }
     
-    window.onload = () => analyzeStock();
     document.getElementById('symbol').addEventListener('keypress', e => { if (e.key === 'Enter') analyzeStock(); });
 </script>
 </body>
