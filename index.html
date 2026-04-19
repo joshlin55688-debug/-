@@ -80,17 +80,44 @@
     macdChart.timeScale().subscribeVisibleTimeRangeChange(range => { mainChart.timeScale().setVisibleRange(range); });
 
     // ==========================================
-    // 2. 超強防呆版：抓取與「清洗」資料
+    // 2. 超強防呆版：抓取與「清洗」資料 (加入狡兔三窟多重代理機制)
     // ==========================================
     async function fetchRealData(symbol) {
-        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
-        // 改用 AllOrigins 代理，通常比 corsproxy.io 更穩定
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("API 伺服器拒絕連線 (可能代號錯誤或網路問題)");
+        // 改用 query2 有時能避開 Yahoo 的快取阻擋
+        const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
         
-        const rawData = await response.json();
+        // 準備三個不同的免費代理伺服器備用
+        const proxies = [
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+        ];
+
+        let rawData = null;
+        let lastError = "";
+
+        // 輪流嘗試每一個代理伺服器，只要有一個成功就跳出迴圈
+        for (let i = 0; i < proxies.length; i++) {
+            try {
+                console.log(`嘗試連線通道 ${i + 1}...`);
+                const response = await fetch(proxies[i]);
+                
+                if (response.ok) {
+                    rawData = await response.json();
+                    console.log(`通道 ${i + 1} 連線成功！`);
+                    break; // 成功拿回資料，停止嘗試後面的代理
+                }
+            } catch (error) {
+                console.warn(`通道 ${i + 1} 塞車或失敗，自動切換下一個...`);
+                lastError = error.message;
+            }
+        }
+
+        // 如果三個都失敗，才丟出錯誤訊息給使用者
+        if (!rawData) {
+            throw new Error("目前免費資料通道大塞車，請等 1 分鐘後再試一次！");
+        }
+
         if (!rawData.chart || !rawData.chart.result || rawData.chart.result.length === 0) {
             throw new Error(`找不到 ${symbol} 的資料，請確認代號是否正確`);
         }
@@ -105,7 +132,7 @@
         const closes = quote.close || [];
         const vols = quote.volume || [];
 
-        let dataMap = new Map();
+        let dataMap = new Map(); 
 
         for (let i = 0; i < timestamps.length; i++) {
             if (opens[i] == null || highs[i] == null || lows[i] == null || closes[i] == null) continue;
@@ -126,7 +153,6 @@
         let cleanData = Array.from(dataMap.values()).sort((a, b) => new Date(a.time) - new Date(b.time));
         return cleanData;
     }
-
     // ==========================================
     // 3. 技術指標計算引擎 
     // ==========================================
