@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業技術分析儀表板/title>
+    <title>專業技術分析儀表板</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
     
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     
@@ -83,7 +84,8 @@
     // ==========================================
     async function fetchRealData(symbol) {
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=3y&interval=1d`;
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        // 改用 AllOrigins 代理，通常比 corsproxy.io 更穩定
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error("API 伺服器拒絕連線 (可能代號錯誤或網路問題)");
@@ -103,33 +105,30 @@
         const closes = quote.close || [];
         const vols = quote.volume || [];
 
-        let dataMap = new Map(); // 用 Map 來過濾重複的日期
+        let dataMap = new Map();
 
         for (let i = 0; i < timestamps.length; i++) {
-            // 【關鍵防呆】剔除任何包含 null 或 undefined 的瑕疵 K 棒
             if (opens[i] == null || highs[i] == null || lows[i] == null || closes[i] == null) continue;
             
             const date = new Date(timestamps[i] * 1000);
             const timeString = date.toISOString().split('T')[0];
             
-            // 將乾淨的資料寫入 Map (如果有重複日期，新的會覆蓋舊的)
             dataMap.set(timeString, {
                 time: timeString,
                 open: Number(opens[i].toFixed(2)),
                 high: Number(highs[i].toFixed(2)),
                 low: Number(lows[i].toFixed(2)),
                 close: Number(closes[i].toFixed(2)),
-                volume: Number(vols[i] || 0) // 如果沒有成交量強制設為 0
+                volume: Number(vols[i] || 0)
             });
         }
         
-        // 轉換回陣列，並【強制按時間先後排序】，防止圖表庫崩潰
         let cleanData = Array.from(dataMap.values()).sort((a, b) => new Date(a.time) - new Date(b.time));
         return cleanData;
     }
 
     // ==========================================
-    // 3. 技術指標計算引擎 (加入安全驗證)
+    // 3. 技術指標計算引擎 
     // ==========================================
     function calculateSMA(data, period) {
         let result = [];
@@ -147,7 +146,7 @@
         for (let i = 0; i < data.length; i++) {
             if (i < period - 1) continue;
             let currentSmaObj = sma.find(s => s.time === data[i].time);
-            if (!currentSmaObj) continue; // 防呆
+            if (!currentSmaObj) continue; 
             
             let sumSq = 0;
             for (let j = 0; j < period; j++) {
@@ -175,7 +174,7 @@
     }
 
     function calculateRSI(data, period) {
-        if (data.length <= period) return 50; // 防呆預設值
+        if (data.length <= period) return 50; 
         let closes = data.map(d => d.close);
         let gains = 0, losses = 0;
         
@@ -197,7 +196,7 @@
     }
 
     // ==========================================
-    // 4. 主程式 (全面使用 Try-Catch 攔截錯誤)
+    // 4. 主程式 
     // ==========================================
     async function analyzeStock() {
         const symbol = document.getElementById('symbol').value.toUpperCase().trim();
@@ -218,19 +217,16 @@
                 throw new Error("該股票上市時間太短，無法計算完整的技術指標。");
             }
 
-            // 清空舊圖表資料 (防止切換股票時殘留)
             candleSeries.setData([]); volumeSeries.setData([]);
             bbMiddleSeries.setData([]); bbUpperSeries.setData([]); bbLowerSeries.setData([]);
             macdLineSeries.setData([]); macdSignalSeries.setData([]); macdHistogramSeries.setData([]);
 
-            // 繪製主圖資料
             candleSeries.setData(historicalData);
             volumeSeries.setData(historicalData.map(d => ({
                 time: d.time, value: d.volume,
                 color: d.close >= d.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
             })));
 
-            // 布林通道
             const sma20Data = calculateSMA(historicalData, 20);
             const stdDevData = calculateStdDev(historicalData, sma20Data, 20);
             let upperData = [], lowerData = [];
@@ -247,7 +243,6 @@
             bbUpperSeries.setData(upperData);
             bbLowerSeries.setData(lowerData);
 
-            // MACD
             const ema12 = calculateEMA(historicalData, 12);
             const ema26 = calculateEMA(historicalData, 26);
             let macdLine = [];
@@ -279,7 +274,6 @@
 
             mainChart.timeScale().fitContent();
 
-            // 執行文字分析
             const currentClose = historicalData[historicalData.length - 1].close;
             const currentRSI = calculateRSI(historicalData, 14);
             const currentSMA20 = sma20Data.length > 0 ? sma20Data[sma20Data.length - 1].value : currentClose;
