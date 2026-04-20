@@ -66,6 +66,45 @@
         .dist-bar-col .d-count { font-size: 0.75em; color: #ccc; }
         .dist-bar-col .d-bar   { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; }
         .dist-bar-col .d-label { font-size: 0.62em; color: #888; text-align: center; line-height: 1.3; }
+
+        /* ── 釘選列 ── */
+        .pin-bar { background: #1a1e2e; border-radius: 8px; padding: 10px 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid #2e3347; }
+        .pin-bar-label { font-size: 0.82em; color: #666; white-space: nowrap; }
+        .pin-chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+        .pin-chip { display: inline-flex; align-items: center; gap: 6px; background: #252836; border: 1px solid #3a3f55; border-radius: 20px; padding: 4px 12px 4px 14px; font-size: 0.82em; transition: border-color 0.2s; }
+        .pin-chip:hover { border-color: #2962ff; }
+        .pin-load { font-weight: bold; color: #e0e0e0; cursor: pointer; }
+        .pin-remove { color: #444; cursor: pointer; font-size: 1em; line-height: 1; margin-left: 2px; }
+        .pin-remove:hover { color: #ef5350; }
+        .btn-pin { background: #37474f; color: white; padding: 10px 14px; font-size: 14px; }
+        .btn-pin:hover:not(:disabled) { background: #455a64; }
+        .btn-pin.active { background: #2962ff; }
+        .btn-compare { background: #e65100; color: white; padding: 6px 14px; border-radius: 5px; border: none; cursor: pointer; font-size: 0.82em; font-weight: bold; white-space: nowrap; transition: background 0.2s; }
+        .btn-compare:hover:not(:disabled) { background: #bf360c; }
+        .btn-compare:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── 入場評分 ── */
+        .score-wrap { display: flex; align-items: center; gap: 18px; background: #252836; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; border: 1px solid #2e3347; }
+        .score-ring { text-align: center; min-width: 72px; }
+        .score-num  { font-size: 2.6em; font-weight: 900; line-height: 1; }
+        .score-deno { font-size: 0.78em; color: #555; margin-top: 2px; }
+        .score-info { flex: 1; }
+        .score-grade { font-size: 0.95em; font-weight: bold; margin-bottom: 7px; }
+        .score-track { background: #1a1e2e; border-radius: 4px; height: 6px; margin-bottom: 10px; overflow: hidden; }
+        .score-fill  { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+        .score-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 16px; }
+        .score-row   { font-size: 0.7em; display: flex; justify-content: space-between; color: #666; }
+        .score-row span:last-child { color: #bbb; font-weight: bold; }
+
+        /* ── 比較面板 ── */
+        .compare-panel { background: #1e222d; padding: 25px; border-radius: 8px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .cmp-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.86em; }
+        .cmp-table th { text-align: left; padding: 8px 12px; color: #666; font-weight: 500; border-bottom: 1px solid #2e3347; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; }
+        .cmp-table td { padding: 10px 12px; border-bottom: 1px solid #222; cursor: pointer; }
+        .cmp-table tr:hover td { background: #252836; }
+        .cmp-rank { color: #555; font-size: 0.85em; width: 28px; }
+        .cmp-sym  { font-weight: bold; color: #fff; }
+        .score-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -77,6 +116,7 @@
                 <input type="text" id="symbol" placeholder="輸入代號 (如 TSLA, 2330.TW)" value="NVDA"
                        oninput="this.value = this.value.toUpperCase()">
                 <button class="btn-primary" id="search-btn" onclick="analyzeStock()">抓取技術線圖</button>
+                <button class="btn-pin" id="pin-btn" onclick="togglePin()" title="釘選此股票">📌</button>
             </div>
         </div>
         <div class="api-bar">
@@ -92,6 +132,13 @@
         </div>
     </div>
 
+    <!-- 釘選列 -->
+    <div id="pin-bar" class="pin-bar" style="display:none">
+        <span class="pin-bar-label">📌 釘選：</span>
+        <div id="pin-chips" class="pin-chips"></div>
+        <button id="compare-btn" class="btn-compare" onclick="compareAllPins()">⚡ 一鍵比較評分</button>
+    </div>
+
     <div class="chart-container">
         <div id="main-chart"></div>
         <div id="macd-chart"></div>
@@ -100,6 +147,18 @@
     <div class="analysis-grid">
         <div class="panel">
             <h3>📊 演算法技術分析</h3>
+            <!-- 入場評分 -->
+            <div id="score-wrap" class="score-wrap" style="display:none">
+                <div class="score-ring">
+                    <div id="score-num" class="score-num">--</div>
+                    <div class="score-deno">/100 分</div>
+                </div>
+                <div class="score-info">
+                    <div id="score-grade" class="score-grade"></div>
+                    <div class="score-track"><div id="score-fill" class="score-fill" style="width:0%"></div></div>
+                    <div id="score-grid" class="score-grid"></div>
+                </div>
+            </div>
             <ul id="ta-results"><li>請輸入股票代號並點擊搜尋...</li></ul>
             <h4 id="final-verdict" style="font-size:1.2em; border-top:1px solid #444; padding-top:15px; margin-top:15px;"></h4>
         </div>
@@ -110,6 +169,15 @@
             </div>
             <div id="ai-content">請先輸入 API Key 並儲存，接著點擊「一鍵生成」，AI 將為你分析該公司基本面與風險。</div>
         </div>
+    </div>
+
+    <!-- 比較面板 -->
+    <div id="compare-panel" class="compare-panel" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+            <h3 style="margin:0">⚡ 釘選股入場評分比較</h3>
+            <button onclick="document.getElementById('compare-panel').style.display='none'" style="background:none;color:#555;font-size:1.3em;padding:4px 8px;line-height:1">✕</button>
+        </div>
+        <div id="compare-content"></div>
     </div>
 
     <div class="consensus-panel" id="consensus-panel">
@@ -137,6 +205,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const ak = localStorage.getItem('avApiKey');
     if (gk) document.getElementById('gemini-key').value = gk;
     if (ak) document.getElementById('av-key').value = ak;
+    renderPins();
     // 讓瀏覽器先完成圖表容器的 layout，再呼叫 analyzeStock
     setTimeout(analyzeStock, 0);
 });
@@ -513,6 +582,168 @@ async function generateAIAnalysis() {
     }
 }
 
+// ── 入場評分 ───────────────────────────────────────────────────────────────
+function calculateEntryScore(close, rsi, sma20, upper, lower, histData) {
+    // RSI (30 pts)：30-50 最佳入場區
+    const rsiScore =
+        rsi < 20 ? 8 : rsi < 30 ? 18 : rsi < 50 ? 30 :
+        rsi < 60 ? 22 : rsi < 70 ? 12 : 4;
+
+    // 布林位置 (25 pts)：價格在下軌到中軌之間得分最高
+    const bbScore =
+        close < lower  ? 20 : close < sma20 ? 25 :
+        close < upper  ? 15 : 5;
+
+    // MACD 柱狀 (25 pts)
+    let macdScore = 10;
+    if (histData.length >= 2) {
+        const h0 = histData.at(-1).value, h1 = histData.at(-2).value;
+        macdScore = h0 > 0 && h0 > h1  ? 25
+                  : h0 > 0             ? 15
+                  : h0 < 0 && h0 >= h1 ? 12
+                  : 3;
+    }
+
+    // 趨勢 (20 pts)
+    const macdPos = histData.length > 0 && histData.at(-1).value > 0;
+    const trendScore =
+        close > sma20 && macdPos ? 20 :
+        close > sma20            ? 13 :
+        close > lower            ? 7  : 3;
+
+    const total = Math.min(100, rsiScore + bbScore + macdScore + trendScore);
+    const grade =
+        total >= 72 ? { label: '強烈建議入場', color: '#26a69a', icon: '🟢' } :
+        total >= 55 ? { label: '可考慮入場',   color: '#4caf50', icon: '🟡' } :
+        total >= 38 ? { label: '保持觀望',     color: '#ffb74d', icon: '🟠' } :
+                      { label: '不建議入場',   color: '#ef5350', icon: '🔴' };
+
+    return { total, rsiScore, bbScore, macdScore, trendScore, grade };
+}
+
+function renderScore(s) {
+    const wrap  = document.getElementById('score-wrap');
+    const { total, rsiScore, bbScore, macdScore, trendScore, grade } = s;
+    document.getElementById('score-num').textContent = total;
+    document.getElementById('score-num').style.color = grade.color;
+    document.getElementById('score-grade').innerHTML = `${grade.icon} <strong>${grade.label}</strong>`;
+    document.getElementById('score-grade').style.color = grade.color;
+    const fill = document.getElementById('score-fill');
+    fill.style.width = `${total}%`;
+    fill.style.background = grade.color;
+    document.getElementById('score-grid').innerHTML = `
+        <div class="score-row"><span>RSI 動能</span><span>${rsiScore}/30</span></div>
+        <div class="score-row"><span>MACD 力道</span><span>${macdScore}/25</span></div>
+        <div class="score-row"><span>布林位置</span><span>${bbScore}/25</span></div>
+        <div class="score-row"><span>趨勢方向</span><span>${trendScore}/20</span></div>`;
+    wrap.style.display = 'flex';
+}
+
+// ── 釘選系統 ───────────────────────────────────────────────────────────────
+function getPins() { return JSON.parse(localStorage.getItem('pinnedStocks') || '[]'); }
+function savePins(p) { localStorage.setItem('pinnedStocks', JSON.stringify(p)); }
+
+function togglePin() {
+    const sym = document.getElementById('symbol').value.toUpperCase().trim();
+    if (!sym) return;
+    const pins = getPins();
+    const idx  = pins.indexOf(sym);
+    idx === -1 ? pins.push(sym) : pins.splice(idx, 1);
+    savePins(pins);
+    renderPins();
+}
+
+function renderPins() {
+    const pins = getPins();
+    const sym  = document.getElementById('symbol').value.toUpperCase().trim();
+    const btn  = document.getElementById('pin-btn');
+    btn.classList.toggle('active', pins.includes(sym));
+    btn.title = pins.includes(sym) ? '取消釘選' : '釘選此股票';
+
+    const bar   = document.getElementById('pin-bar');
+    const chips = document.getElementById('pin-chips');
+    if (!pins.length) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    chips.innerHTML = pins.map(p => `
+        <span class="pin-chip">
+            <span class="pin-load" onclick="loadPin('${p}')">${p}</span>
+            <span class="pin-remove" onclick="removePin('${p}')">✕</span>
+        </span>`).join('');
+}
+
+function loadPin(sym) { document.getElementById('symbol').value = sym; analyzeStock(); }
+function removePin(sym) { savePins(getPins().filter(p => p !== sym)); renderPins(); }
+
+// ── 一鍵比較 ───────────────────────────────────────────────────────────────
+async function quickScore(symbol) {
+    try {
+        const data = await fetchRealData(symbol);
+        if (data.length < 30) return null;
+        const sma20 = calcSMA(data, BB_PERIOD);
+        const { upper, lower } = calcBBands(data, sma20, BB_PERIOD);
+        const rsiData  = calcRSI(data, RSI_PERIOD);
+        const { histData } = calcMACD(data);
+        const last    = data.at(-1);
+        const curRSI  = rsiData.at(-1)?.value  ?? 50;
+        const curSMA  = sma20.at(-1)?.value    ?? last.close;
+        const curUp   = upper.at(-1)?.value    ?? last.close;
+        const curLow  = lower.at(-1)?.value    ?? last.close;
+        const score   = calculateEntryScore(last.close, curRSI, curSMA, curUp, curLow, histData);
+
+        const h0 = histData.at(-1)?.value ?? 0;
+        const h1 = histData.at(-2)?.value ?? 0;
+        score.bbLabel   = last.close < curLow  ? '跌破下軌' : last.close < curSMA ? '下軌↔中軌' :
+                          last.close < curUp   ? '中軌↔上軌' : '突破上軌';
+        score.macdLabel = h0 > 0 && h0 > h1 ? '紅柱伸長' : h0 > 0 ? '紅柱縮短' :
+                          h0 < 0 && h0 >= h1 ? '綠柱縮短' : '綠柱伸長';
+        return { symbol, close: last.close, rsi: curRSI, score };
+    } catch { return null; }
+}
+
+async function compareAllPins() {
+    const pins = getPins();
+    if (!pins.length) return;
+    const panel   = document.getElementById('compare-panel');
+    const content = document.getElementById('compare-content');
+    const btn     = document.getElementById('compare-btn');
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    content.innerHTML = `<p style="color:#666;text-align:center;padding:20px">正在分析 ${pins.length} 支釘選股票，請稍候…</p>`;
+    btn.disabled = true; btn.textContent = '分析中…';
+
+    const results = (await Promise.allSettled(pins.map(quickScore)))
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+        .sort((a, b) => b.score.total - a.score.total);
+
+    if (!results.length) {
+        content.innerHTML = '<p style="color:#ef5350">無法取得任何股票資料，請稍後重試。</p>';
+    } else {
+        content.innerHTML = `
+        <table class="cmp-table">
+          <thead><tr>
+            <th>#</th><th>股票</th><th>現價</th><th>入場評分</th>
+            <th>RSI</th><th>布林位置</th><th>MACD</th><th>建議</th>
+          </tr></thead>
+          <tbody>
+            ${results.map(({ symbol, close, rsi, score }, i) => `
+            <tr onclick="loadPin('${symbol}')" title="點擊切換至 ${symbol}">
+              <td class="cmp-rank">${i + 1}</td>
+              <td class="cmp-sym">${symbol}</td>
+              <td>$${close.toFixed(2)}</td>
+              <td><span class="score-badge" style="background:${score.grade.color}22;color:${score.grade.color};border:1px solid ${score.grade.color}44">${score.total}/100</span></td>
+              <td style="color:${rsi > 70 ? '#ef5350' : rsi < 30 ? '#26a69a' : '#ccc'}">${rsi.toFixed(1)}</td>
+              <td>${score.bbLabel}</td>
+              <td>${score.macdLabel}</td>
+              <td style="color:${score.grade.color}">${score.grade.icon} ${score.grade.label}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <p style="color:#444;font-size:0.78em;margin-top:10px;text-align:right">點擊任一列可切換並載入該股票</p>`;
+    }
+    btn.disabled = false; btn.textContent = '⚡ 一鍵比較評分';
+}
+
 // ── 主程式 ──────────────────────────────────────────────────────────────────
 async function analyzeStock() {
     const symbol = document.getElementById('symbol').value.toUpperCase().trim();
@@ -603,11 +834,17 @@ async function analyzeStock() {
         else if (score <= -2) verdict.innerHTML = `⚠️ 技術面判定：<span class="signal-sell">弱勢偏空 (Sell)</span>`;
         else                  verdict.innerHTML = `⚖️ 技術面判定：<span class="signal-neutral">震盪整理 (Hold)</span>`;
 
+        // 入場評分
+        const entryScore = calculateEntryScore(last.close, curRSI, curSMA20, curUpper, curLower, histData);
+        renderScore(entryScore);
+
         renderConsensus(analystData, last.close);
+        renderPins();
 
     } catch (e) {
         console.error('[analyzeStock]', e.message, e.stack);
         resultsList.innerHTML = `<li><span class="signal-sell">錯誤：${e.message}</span></li>`;
+        document.getElementById('score-wrap').style.display = 'none';
         renderConsensus(null, 0);
     } finally {
         btn.textContent = '抓取技術線圖'; btn.disabled = false;
